@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Gastos y Comidas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/formulario.css">
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Registro</h1>
+      <p>Agrega un nuevo gasto o una comida</p>
+    </header>
+    <main>
+      <form id="form-registro">
+        <div class="field">
+          <label for="tipo">Tipo de registro</label>
+          <select id="tipo">
+            <option value="" selected disabled>Selecciona...</option>
+            <option value="gasto">Gasto</option>
+            <option value="comida">Comida</option>
+          </select>
+        </div>
+
+        <div id="campos-gasto">
+          <div class="field">
+            <label for="gasto-concepto">Concepto</label>
+            <input type="text" id="gasto-concepto" name="concepto">
+          </div>
+          <div class="field">
+            <label for="gasto-monto">Monto</label>
+            <input type="number" id="gasto-monto" name="monto" step="0.01">
+          </div>
+          <div class="field">
+            <label for="gasto-categoria">Categoría</label>
+            <select id="gasto-categoria" name="categoria_id">
+              <option value="" selected disabled>Selecciona...</option>
+              <option value="1">Comida</option>
+              <option value="2">Transporte</option>
+              <option value="3">Entretenimiento</option>
+              <option value="4">Servicios</option>
+              <option value="5">Salud</option>
+              <option value="6">Otros</option>
+              <option value="7">Delivery</option>
+              <option value="8">Chucherías</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gasto-metodo-pago">Método de pago</label>
+            <select id="gasto-metodo-pago" name="metodo_pago">
+              <option value="" selected disabled>Selecciona...</option>
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="TARJETA">Tarjeta</option>
+              <option value="YAPE">Yape</option>
+              <option value="PLIN">Plin</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gasto-recurrente">
+              <input type="checkbox" id="gasto-recurrente" name="es_recurrente" style="width:auto;display:inline-block;margin-right:6px;">
+              ¿Es recurrente?
+            </label>
+          </div>
+          <div class="field">
+            <label for="gasto-notas">Notas</label>
+            <textarea id="gasto-notas" name="notas" rows="2"></textarea>
+          </div>
+          <div class="field">
+            <label for="gasto-fecha">Fecha y hora (opcional, vacío = ahora)</label>
+            <input type="datetime-local" id="gasto-fecha" name="fecha">
+          </div>
+        </div>
+
+        <div id="campos-comida">
+          <div class="field">
+            <label for="comida-concepto">Concepto</label>
+            <input type="text" id="comida-concepto" name="concepto">
+          </div>
+          <div class="field">
+            <label for="comida-calorias">Calorías</label>
+            <input type="number" id="comida-calorias" name="calorias" step="1">
+          </div>
+          <div class="field">
+            <label for="comida-proteinas">Proteínas</label>
+            <input type="number" id="comida-proteinas" name="proteinas" step="0.1">
+          </div>
+          <div class="field">
+            <label for="comida-nombre">Nombre</label>
+            <input type="text" id="comida-nombre" name="nombre">
+          </div>
+          <div class="field">
+            <label for="comida-fecha">Fecha y hora (opcional, vacío = ahora)</label>
+            <input type="datetime-local" id="comida-fecha" name="fecha">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-guardar">Guardar</button>
+        <div id="mensaje"></div>
+      </form>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/formulario.js"></script>
+</body>
+</html>
