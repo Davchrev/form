@@ -1,9 +1,9 @@
 const CACHE_NAME = 'registro-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/css/formulario.css',
-  '/js/formulario.js',
+  '/form/',
+  '/form/index.html',
+  '/form/css/formulario.css',
+  '/form/js/formulario.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
