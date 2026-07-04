@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Registra tus gastos y comidas de forma fácil">
+<meta name="theme-color" content="#6366f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Registro">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%236366f1' width='180' height='180'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='70' font-weight='bold' fill='white' font-family='Arial'>$</text></svg>">
+<link rel="manifest" href="manifest.json">
 <title>Registro de Gastos y Comidas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -103,6 +110,79 @@
       </form>
     </main>
   </div>
+
+  <div id="install-prompt" style="display: none; position: fixed; bottom: 20px; left: 20px; right: 20px; background: #6366f1; color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; animation: slideUp 0.3s ease;">
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <div style="flex: 1;">
+        <p style="margin: 0 0 8px 0; font-weight: 600;">Instala como app</p>
+        <p style="margin: 0; font-size: 14px; opacity: 0.9;">Accede rápidamente desde tu móvil</p>
+      </div>
+      <button id="install-btn" style="background: white; color: #6366f1; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; white-space: nowrap;">Instalar</button>
+      <button id="dismiss-btn" style="background: transparent; color: white; border: none; cursor: pointer; font-size: 20px; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">×</button>
+    </div>
+  </div>
+
+  <style>
+    @keyframes slideUp {
+      from {
+        transform: translateY(120px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+  </style>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker registrado'))
+        .catch(err => console.log('Error registrando Service Worker:', err));
+    }
+
+    let deferredPrompt;
+    const installPrompt = document.getElementById('install-prompt');
+    const installBtn = document.getElementById('install-btn');
+    const dismissBtn = document.getElementById('dismiss-btn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installPrompt.style.display = 'flex';
+    });
+
+    window.addEventListener('appinstalled', () => {
+      console.log('App instalada');
+      installPrompt.style.display = 'none';
+      deferredPrompt = null;
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`Usuario respondió: ${outcome}`);
+        deferredPrompt = null;
+        installPrompt.style.display = 'none';
+      }
+    });
+
+    dismissBtn.addEventListener('click', () => {
+      installPrompt.style.display = 'none';
+      localStorage.setItem('installPromptDismissed', 'true');
+    });
+
+    if (localStorage.getItem('installPromptDismissed')) {
+      installPrompt.style.display = 'none';
+    }
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile && installPrompt) {
+      installPrompt.style.display = 'none';
+    }
+  </script>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/formulario.js"></script>
