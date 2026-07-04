@@ -1,22 +1,29 @@
 {
   "name": "Registro de Gastos y Comidas",
   "short_name": "Registro",
-  "description": "Registra tus gastos y comidas de forma fácil",
+  "description": "Registra tus gastos y comidas de forma fácil y rápida",
   "start_url": "/form/",
   "scope": "/form/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#6366f1",
   "background_color": "#ffffff",
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%236366f1' width='192' height='192'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='80' font-weight='bold' fill='white' font-family='Arial'>$</text></svg>",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%236366f1' width='180' height='180'/%3E%3Ctext x='90' y='90' dominant-baseline='middle' text-anchor='middle' font-size='90' font-weight='bold' fill='white' font-family='system-ui'%3E%24%3C/text%3E%3C/svg%3E",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%236366f1' width='192' height='192'/%3E%3Ctext x='96' y='96' dominant-baseline='middle' text-anchor='middle' font-size='100' font-weight='bold' fill='white' font-family='system-ui'%3E%24%3C/text%3E%3C/svg%3E",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%236366f1' width='512' height='512'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='250' font-weight='bold' fill='white' font-family='Arial'>$</text></svg>",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect fill='%236366f1' width='512' height='512'/%3E%3Ctext x='256' y='256' dominant-baseline='middle' text-anchor='middle' font-size='280' font-weight='bold' fill='white' font-family='system-ui'%3E%24%3C/text%3E%3C/svg%3E",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -25,7 +32,7 @@
   "categories": ["finance", "productivity"],
   "screenshots": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%236366f1' width='540' height='720'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='60' fill='white' font-family='Arial'>Registro de Gastos</text></svg>",
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'%3E%3Crect fill='%236366f1' width='540' height='720'/%3E%3Ctext x='270' y='360' dominant-baseline='middle' text-anchor='middle' font-size='48' fill='white' font-family='system-ui' font-weight='600'%3ERegistro de Gastos%3C/text%3E%3C/svg%3E",
       "sizes": "540x720",
       "type": "image/svg+xml",
       "form_factor": "narrow"

@@ -111,7 +111,7 @@
     </main>
   </div>
 
-  <div id="install-prompt" style="display: none; position: fixed; bottom: 20px; left: 20px; right: 20px; background: #6366f1; color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; animation: slideUp 0.3s ease;">
+  <div id="install-prompt-android" style="display: none; position: fixed; bottom: 20px; left: 20px; right: 20px; background: #6366f1; color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; animation: slideUp 0.3s ease;">
     <div style="display: flex; gap: 12px; align-items: center;">
       <div style="flex: 1;">
         <p style="margin: 0 0 8px 0; font-weight: 600;">Instala como app</p>
@@ -119,6 +119,17 @@
       </div>
       <button id="install-btn" style="background: white; color: #6366f1; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer; white-space: nowrap;">Instalar</button>
       <button id="dismiss-btn" style="background: transparent; color: white; border: none; cursor: pointer; font-size: 20px; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">×</button>
+    </div>
+  </div>
+
+  <div id="install-prompt-ios" style="display: none; position: fixed; bottom: 20px; left: 20px; right: 20px; background: #6366f1; color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; animation: slideUp 0.3s ease;">
+    <div style="display: flex; gap: 12px; align-items: flex-start;">
+      <div style="flex: 1;">
+        <p style="margin: 0 0 8px 0; font-weight: 600;">Instala como app</p>
+        <p style="margin: 0; font-size: 14px; opacity: 0.9;">1. Toca <span style="background: rgba(255,255,255,0.3); padding: 2px 6px; border-radius: 3px; font-weight: 600;">Compartir</span></p>
+        <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">2. Selecciona <span style="background: rgba(255,255,255,0.3); padding: 2px 6px; border-radius: 3px; font-weight: 600;">Agregar a pantalla principal</span></p>
+      </div>
+      <button id="dismiss-btn-ios" style="background: transparent; color: white; border: none; cursor: pointer; font-size: 20px; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">×</button>
     </div>
   </div>
 
@@ -142,45 +153,58 @@
         .catch(err => console.log('Error registrando Service Worker:', err));
     }
 
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isAndroid = /Android/.test(navigator.userAgent);
+
     let deferredPrompt;
-    const installPrompt = document.getElementById('install-prompt');
+    const installPromptAndroid = document.getElementById('install-prompt-android');
+    const installPromptIOS = document.getElementById('install-prompt-ios');
     const installBtn = document.getElementById('install-btn');
-    const dismissBtn = document.getElementById('dismiss-btn');
+    const dismissBtnAndroid = document.getElementById('dismiss-btn');
+    const dismissBtnIOS = document.getElementById('dismiss-btn-ios');
 
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installPrompt.style.display = 'flex';
-    });
+    if (isIOS) {
+      window.addEventListener('load', () => {
+        if (!localStorage.getItem('installPromptDismissed')) {
+          setTimeout(() => {
+            installPromptIOS.style.display = 'flex';
+          }, 2000);
+        }
+      });
 
-    window.addEventListener('appinstalled', () => {
-      console.log('App instalada');
-      installPrompt.style.display = 'none';
-      deferredPrompt = null;
-    });
+      dismissBtnIOS.addEventListener('click', () => {
+        installPromptIOS.style.display = 'none';
+        localStorage.setItem('installPromptDismissed', 'true');
+      });
+    } else if (isAndroid) {
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (!localStorage.getItem('installPromptDismissed')) {
+          installPromptAndroid.style.display = 'flex';
+        }
+      });
 
-    installBtn.addEventListener('click', async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`Usuario respondió: ${outcome}`);
+      window.addEventListener('appinstalled', () => {
+        console.log('App instalada');
+        installPromptAndroid.style.display = 'none';
         deferredPrompt = null;
-        installPrompt.style.display = 'none';
-      }
-    });
+      });
 
-    dismissBtn.addEventListener('click', () => {
-      installPrompt.style.display = 'none';
-      localStorage.setItem('installPromptDismissed', 'true');
-    });
+      installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(`Usuario respondió: ${outcome}`);
+          deferredPrompt = null;
+          installPromptAndroid.style.display = 'none';
+        }
+      });
 
-    if (localStorage.getItem('installPromptDismissed')) {
-      installPrompt.style.display = 'none';
-    }
-
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (!isMobile && installPrompt) {
-      installPrompt.style.display = 'none';
+      dismissBtnAndroid.addEventListener('click', () => {
+        installPromptAndroid.style.display = 'none';
+        localStorage.setItem('installPromptDismissed', 'true');
+      });
     }
   </script>
 
