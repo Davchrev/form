@@ -13,7 +13,7 @@
 <title>Registro de Gastos y Comidas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/formulario.css">
 </head>
 <body>
@@ -207,21 +207,23 @@
 
         <div id="gastos-content" hidden>
           <article class="total-card">
-            <p id="periodo-label">Gastado hoy</p>
-            <strong id="gasto-total">S/ 0.00</strong>
+            <div class="total-card-top">
+              <p id="periodo-label">Gastado hoy</p>
+              <span class="total-movements"><strong id="gasto-movimientos">0</strong> operaciones</span>
+            </div>
+            <strong class="total-amount" id="gasto-total">S/ 0.00</strong>
             <span id="periodo-fechas">—</span>
+            <div id="gasolina-indicador" class="gasolina-indicator" hidden>
+              <div>
+                <span>Intervalo entre últimas tanqueadas</span>
+                <strong id="gasolina-intervalo">—</strong>
+              </div>
+              <div>
+                <span>Días desde la última tanqueada</span>
+                <strong id="gasolina-desde">—</strong>
+              </div>
+            </div>
           </article>
-
-          <div class="metric-grid">
-            <article class="metric-card">
-              <span>Movimientos</span>
-              <strong id="gasto-movimientos">0</strong>
-            </article>
-            <article class="metric-card">
-              <span>Promedio</span>
-              <strong id="gasto-promedio">S/ 0.00</strong>
-            </article>
-          </div>
 
           <section id="desglose-semanal" class="summary-card" aria-labelledby="semana-titulo" hidden>
             <div class="card-heading">
@@ -266,8 +268,8 @@
       <section id="vista-graficos" class="app-view" role="tabpanel" aria-labelledby="tab-graficos" hidden>
         <div class="dashboard-heading">
           <div>
-            <span class="eyebrow">Últimos 30 días</span>
-            <h2>Frecuencia diaria</h2>
+            <span class="eyebrow">Vista mensual</span>
+            <h2>Así se mueve tu dinero</h2>
           </div>
           <button type="button" class="btn-refresh" id="actualizar-graficos" aria-label="Actualizar gráficos" title="Actualizar gráficos">
             <span aria-hidden="true">↻</span>
@@ -287,6 +289,12 @@
         </div>
 
         <div id="graficos-content" hidden>
+          <div class="month-navigation" role="group" aria-label="Cambiar mes del gráfico">
+            <button type="button" id="mes-anterior" aria-label="Ver mes anterior">‹</button>
+            <strong id="mes-grafico-label">Mes actual</strong>
+            <button type="button" id="mes-siguiente" aria-label="Ver mes siguiente">›</button>
+          </div>
+
           <div class="metric-grid graph-metrics">
             <article class="metric-card">
               <span>Total del periodo</span>
@@ -294,7 +302,7 @@
             </article>
             <article class="metric-card">
               <span>Días con gastos</span>
-              <strong id="grafico-dias">0 de 30</strong>
+              <strong id="grafico-dias">0 días</strong>
             </article>
           </div>
 
@@ -306,9 +314,9 @@
               </div>
               <strong id="grafico-promedio" class="chart-average">Prom. S/ 0.00</strong>
             </div>
-            <p class="chart-help">Desliza horizontalmente para recorrer los días.</p>
+            <p class="chart-help">Desde el día 1. Desliza horizontalmente para recorrer el mes.</p>
             <div id="grafico-leyenda" class="chart-legend" aria-label="Categorías del gráfico"></div>
-            <div class="chart-scroll" id="grafico-scroll" tabindex="0" aria-label="Gráfico de gastos diarios de los últimos 30 días">
+            <div class="chart-scroll" id="grafico-scroll" tabindex="0" aria-label="Gráfico de gastos diarios del mes seleccionado">
               <div id="grafico-barras" class="stacked-chart"></div>
             </div>
             <div id="grafico-vacio" class="empty-state chart-empty" hidden>
@@ -316,6 +324,29 @@
               <h3>Aún no hay gastos en este periodo</h3>
               <p>Registra un gasto para empezar a ver la tendencia.</p>
             </div>
+          </section>
+
+          <section class="summary-card secondary-chart-card" aria-labelledby="acumulado-titulo">
+            <div class="card-heading">
+              <div>
+                <span class="eyebrow">Ritmo del mes</span>
+                <h3 id="acumulado-titulo">Gasto acumulado</h3>
+              </div>
+              <strong id="acumulado-total" class="chart-average">S/ 0.00</strong>
+            </div>
+            <div id="grafico-acumulado" class="line-chart" role="img" aria-label="Evolución del gasto acumulado durante el mes"></div>
+            <div id="acumulado-vacio" class="empty-inline" hidden>Sin gastos para mostrar.</div>
+          </section>
+
+          <section class="summary-card secondary-chart-card" aria-labelledby="metodos-titulo">
+            <div class="card-heading">
+              <div>
+                <span class="eyebrow">Cómo pagaste</span>
+                <h3 id="metodos-titulo">Gasto por método de pago</h3>
+              </div>
+            </div>
+            <div id="metodos-lista" class="payment-chart"></div>
+            <div id="metodos-vacio" class="empty-inline" hidden>Sin métodos de pago para mostrar.</div>
           </section>
         </div>
       </section>

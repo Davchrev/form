@@ -50,6 +50,8 @@ const graficosLoading = document.getElementById('graficos-loading');
 const graficosError = document.getElementById('graficos-error');
 const graficosContent = document.getElementById('graficos-content');
 const btnActualizarGraficos = document.getElementById('actualizar-graficos');
+const btnMesAnterior = document.getElementById('mes-anterior');
+const btnMesSiguiente = document.getElementById('mes-siguiente');
 const authLoading = document.getElementById('auth-loading');
 const authScreen = document.getElementById('auth-screen');
 const appShell = document.getElementById('app-shell');
@@ -64,6 +66,8 @@ let gastos = [];
 let gastosCargados = false;
 let periodoActivo = 'today';
 let sesionActual = null;
+let diaSemanaAbierto = null;
+let mesGrafico = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
 function mostrarMensajeAuth(texto, tipoMensaje = 'error') {
   authMessage.textContent = texto;
@@ -302,6 +306,36 @@ function fechaMovimiento(valor) {
   return fecha.toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function resumenTanquesLlenos() {
+  const hoy = inicioDelDia();
+  const cargas = gastos
+    .filter((gasto) => Number(gasto.monto) > 180 && /gasolina/i.test(String(gasto.concepto || '')))
+    .map((gasto) => inicioDelDia(new Date(gasto.fecha)))
+    .filter((fecha) => !Number.isNaN(fecha.getTime()) && fecha <= hoy)
+    .sort((a, b) => a - b);
+
+  if (!cargas.length) return null;
+
+  const ultima = cargas[cargas.length - 1];
+  const diasDesdeUltima = Math.max(0, Math.floor((hoy - ultima) / 86400000));
+  const textoDesdeUltima = diasDesdeUltima === 0
+    ? 'Hoy'
+    : `${diasDesdeUltima} ${diasDesdeUltima === 1 ? 'día' : 'días'}`;
+
+  if (cargas.length === 1) {
+    return { intervalo: 'Sin intervalo todavía', desdeUltima: textoDesdeUltima };
+  }
+
+  const intervalos = cargas.slice(1).map((fecha, indice) => (
+    Math.max(0, Math.round((fecha - cargas[indice]) / 86400000))
+  ));
+  const promedioDias = Math.round(intervalos.reduce((suma, dias) => suma + dias, 0) / intervalos.length);
+  return {
+    intervalo: `${promedioDias} ${promedioDias === 1 ? 'día' : 'días'}`,
+    desdeUltima: textoDesdeUltima,
+  };
+}
+
 function renderizarCategorias(lista, total) {
   const contenedor = document.getElementById('categorias-lista');
   const vacio = document.getElementById('categorias-vacio');
@@ -376,39 +410,85 @@ function renderizarSemana() {
       return !Number.isNaN(fechaGasto.getTime()) && claveFecha(fechaGasto) === clave;
     });
     const total = movimientos.reduce((suma, gasto) => suma + (Number(gasto.monto) || 0), 0);
-    dias.push({ fecha, total, cantidad: movimientos.length });
+    dias.push({ fecha, total, cantidad: movimientos.length, movimientos });
   }
 
   const maximo = Math.max(...dias.map((dia) => dia.total), 0);
   contenedor.innerHTML = dias.map((dia) => {
+    const clave = claveFecha(dia.fecha);
     const nombre = dia.fecha.toLocaleDateString('es-PE', { weekday: 'short' }).replace('.', '');
     const numero = dia.fecha.toLocaleDateString('es-PE', { day: 'numeric', month: 'short' });
     const porcentaje = maximo > 0 ? (dia.total / maximo) * 100 : 0;
     const movimientos = dia.cantidad === 1 ? '1 movimiento' : `${dia.cantidad} movimientos`;
+    const abierto = diaSemanaAbierto === clave;
+    const detalle = dia.movimientos.length
+      ? dia.movimientos.map((gasto) => {
+        const categoria = categoriaDe(gasto.categoria_id);
+        const concepto = escapeHTML(gasto.concepto || categoria.nombre);
+        const metodo = escapeHTML(gasto.metodo_pago || 'Sin método');
+        const fecha = new Date(gasto.fecha);
+        const hora = Number.isNaN(fecha.getTime())
+          ? 'Sin hora'
+          : fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="week-detail-row">
+            <span><strong>${concepto}</strong>${categoria.nombre} · ${metodo} · ${hora}</span>
+            <strong>${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
+          </div>`;
+      }).join('')
+      : '<p class="week-detail-empty">No registraste gastos este día.</p>';
     return `
-      <div class="week-day">
-        <div class="week-day-label">
-          <strong>${nombre}</strong>
-          <span>${numero}</span>
-        </div>
-        <div class="week-day-track" aria-label="${nombre}: ${formatoMoneda.format(dia.total)}">
-          <span style="width:${porcentaje}%"></span>
-        </div>
-        <div class="week-day-value">
-          <strong>${formatoMoneda.format(dia.total)}</strong>
-          <span>${movimientos}</span>
+      <div class="week-day-item">
+        <button type="button" class="week-day" data-day="${clave}" aria-expanded="${abierto}" aria-controls="detalle-${clave}">
+          <span class="week-day-label">
+            <strong>${nombre}</strong>
+            <span>${numero}</span>
+          </span>
+          <span class="week-day-track" aria-label="${nombre}: ${formatoMoneda.format(dia.total)}">
+            <span style="width:${porcentaje}%"></span>
+          </span>
+          <span class="week-day-value">
+            <strong>${formatoMoneda.format(dia.total)}</strong>
+            <span>${movimientos}</span>
+          </span>
+          <span class="week-chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div id="detalle-${clave}" class="week-day-detail" ${abierto ? '' : 'hidden'}>
+          ${detalle}
         </div>
       </div>`;
   }).join('');
+
+  contenedor.querySelectorAll('.week-day').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      diaSemanaAbierto = diaSemanaAbierto === boton.dataset.day ? null : boton.dataset.day;
+      renderizarSemana();
+    });
+  });
 }
 
-function diasUltimosTreinta() {
+function gastosDelMesGrafico() {
+  const inicio = new Date(mesGrafico.getFullYear(), mesGrafico.getMonth(), 1);
+  const finDelMes = new Date(mesGrafico.getFullYear(), mesGrafico.getMonth() + 1, 1);
   const hoy = inicioDelDia();
-  const inicio = new Date(hoy);
-  inicio.setDate(inicio.getDate() - 29);
+  const esMesActual = inicio.getFullYear() === hoy.getFullYear() && inicio.getMonth() === hoy.getMonth();
+  const fin = esMesActual ? new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1) : finDelMes;
+  return gastos.filter((gasto) => {
+    const fecha = new Date(gasto.fecha);
+    return !Number.isNaN(fecha.getTime()) && fecha >= inicio && fecha < fin;
+  });
+}
+
+function diasDelMesGrafico() {
+  const hoy = inicioDelDia();
+  const inicio = new Date(mesGrafico.getFullYear(), mesGrafico.getMonth(), 1);
+  const esMesActual = inicio.getFullYear() === hoy.getFullYear() && inicio.getMonth() === hoy.getMonth();
+  const ultimo = esMesActual
+    ? hoy
+    : new Date(inicio.getFullYear(), inicio.getMonth() + 1, 0);
   const dias = [];
 
-  for (let cursor = new Date(inicio); cursor <= hoy; cursor.setDate(cursor.getDate() + 1)) {
+  for (let cursor = new Date(inicio); cursor <= ultimo; cursor.setDate(cursor.getDate() + 1)) {
     dias.push({
       fecha: new Date(cursor),
       categorias: new Map(),
@@ -418,7 +498,7 @@ function diasUltimosTreinta() {
   }
 
   const porFecha = new Map(dias.map((dia) => [claveFecha(dia.fecha), dia]));
-  gastos.forEach((gasto) => {
+  gastosDelMesGrafico().forEach((gasto) => {
     const fecha = new Date(gasto.fecha);
     if (Number.isNaN(fecha.getTime())) return;
     const dia = porFecha.get(claveFecha(fecha));
@@ -434,8 +514,91 @@ function diasUltimosTreinta() {
   return dias;
 }
 
+function monedaCompacta(valor) {
+  if (valor >= 1000) return `S/ ${(valor / 1000).toFixed(valor >= 10000 ? 0 : 1)}k`;
+  return `S/ ${Math.round(valor)}`;
+}
+
+function renderizarAcumulado(dias, total) {
+  const contenedor = document.getElementById('grafico-acumulado');
+  const vacio = document.getElementById('acumulado-vacio');
+  document.getElementById('acumulado-total').textContent = formatoMoneda.format(total);
+  contenedor.hidden = total === 0;
+  vacio.hidden = total > 0;
+
+  if (total === 0) {
+    contenedor.innerHTML = '';
+    return;
+  }
+
+  let acumulado = 0;
+  const valores = dias.map((dia) => {
+    acumulado += dia.total;
+    return acumulado;
+  });
+  const ancho = 640;
+  const alto = 220;
+  const izquierda = 48;
+  const derecha = 18;
+  const arriba = 20;
+  const abajo = 34;
+  const anchoGrafico = ancho - izquierda - derecha;
+  const altoGrafico = alto - arriba - abajo;
+  const x = (indice) => izquierda + (valores.length === 1 ? 0 : (indice / (valores.length - 1)) * anchoGrafico);
+  const y = (valor) => arriba + altoGrafico - (valor / total) * altoGrafico;
+  const puntos = valores.map((valor, indice) => `${x(indice)},${y(valor)}`).join(' ');
+  const area = `${izquierda},${arriba + altoGrafico} ${puntos} ${x(valores.length - 1)},${arriba + altoGrafico}`;
+  const medio = Math.floor((dias.length - 1) / 2);
+
+  contenedor.innerHTML = `
+    <svg viewBox="0 0 ${ancho} ${alto}" role="img" aria-labelledby="acumulado-svg-titulo acumulado-svg-desc">
+      <title id="acumulado-svg-titulo">Gasto acumulado del mes</title>
+      <desc id="acumulado-svg-desc">El gasto acumulado llegó a ${formatoMoneda.format(total)}.</desc>
+      <line class="line-grid" x1="${izquierda}" y1="${arriba}" x2="${ancho - derecha}" y2="${arriba}"></line>
+      <line class="line-grid" x1="${izquierda}" y1="${arriba + altoGrafico / 2}" x2="${ancho - derecha}" y2="${arriba + altoGrafico / 2}"></line>
+      <line class="line-grid" x1="${izquierda}" y1="${arriba + altoGrafico}" x2="${ancho - derecha}" y2="${arriba + altoGrafico}"></line>
+      <polygon class="line-area" points="${area}"></polygon>
+      <polyline class="line-path" points="${puntos}"></polyline>
+      <circle class="line-end" cx="${x(valores.length - 1)}" cy="${y(total)}" r="5"></circle>
+      <text class="line-axis-label" x="${izquierda - 7}" y="${arriba + 4}" text-anchor="end">${monedaCompacta(total)}</text>
+      <text class="line-axis-label" x="${izquierda - 7}" y="${arriba + altoGrafico + 4}" text-anchor="end">S/ 0</text>
+      <text class="line-axis-label" x="${izquierda}" y="${alto - 8}" text-anchor="middle">1</text>
+      <text class="line-axis-label" x="${x(medio)}" y="${alto - 8}" text-anchor="middle">${dias[medio].fecha.getDate()}</text>
+      <text class="line-axis-label" x="${x(dias.length - 1)}" y="${alto - 8}" text-anchor="middle">${dias[dias.length - 1].fecha.getDate()}</text>
+    </svg>`;
+}
+
+function renderizarMetodos(movimientos, total) {
+  const contenedor = document.getElementById('metodos-lista');
+  const vacio = document.getElementById('metodos-vacio');
+  const acumulado = new Map();
+
+  movimientos.forEach((gasto) => {
+    const metodo = String(gasto.metodo_pago || 'Sin método').trim() || 'Sin método';
+    acumulado.set(metodo, (acumulado.get(metodo) || 0) + (Number(gasto.monto) || 0));
+  });
+
+  const metodos = [...acumulado.entries()].sort((a, b) => b[1] - a[1]);
+  vacio.hidden = metodos.length > 0;
+  contenedor.hidden = metodos.length === 0;
+  contenedor.innerHTML = metodos.map(([metodo, monto]) => {
+    const porcentaje = total > 0 ? (monto / total) * 100 : 0;
+    return `
+      <div class="payment-row">
+        <div class="payment-label">
+          <strong>${escapeHTML(metodo)}</strong>
+          <span>${formatoMoneda.format(monto)} · ${Math.round(porcentaje)}%</span>
+        </div>
+        <div class="payment-track" aria-label="${escapeHTML(metodo)}: ${Math.round(porcentaje)}%">
+          <span style="width:${porcentaje}%"></span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function renderizarGraficos() {
-  const dias = diasUltimosTreinta();
+  const dias = diasDelMesGrafico();
+  const movimientosMes = gastosDelMesGrafico();
   const total = dias.reduce((suma, dia) => suma + dia.total, 0);
   const diasConGastos = dias.filter((dia) => dia.cantidad > 0).length;
   const promedioDiario = total / dias.length;
@@ -444,8 +607,16 @@ function renderizarGraficos() {
 
   dias.forEach((dia) => dia.categorias.forEach((_, id) => categoriasUsadas.add(id)));
 
+  const hoy = inicioDelDia();
+  const inicioMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const esMesActual = mesGrafico.getTime() === inicioMesActual.getTime();
+  document.getElementById('mes-grafico-label').textContent = mesGrafico.toLocaleDateString('es-PE', {
+    month: 'long',
+    year: 'numeric',
+  });
+  btnMesSiguiente.disabled = esMesActual;
   document.getElementById('grafico-total').textContent = formatoMoneda.format(total);
-  document.getElementById('grafico-dias').textContent = `${diasConGastos} de 30`;
+  document.getElementById('grafico-dias').textContent = `${diasConGastos} de ${dias.length}`;
   document.getElementById('grafico-promedio').textContent = `Prom. ${formatoMoneda.format(promedioDiario)}`;
 
   const leyenda = document.getElementById('grafico-leyenda');
@@ -465,18 +636,18 @@ function renderizarGraficos() {
   vacio.hidden = !sinDatos;
 
   grafico.innerHTML = dias.map((dia, indice) => {
-    const altoTotal = maximo > 0 ? (dia.total / maximo) * 100 : 0;
+    const altoTotal = maximo > 0 ? (dia.total / maximo) * 82 : 0;
     const segmentos = [...dia.categorias.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([id, monto]) => {
         const categoria = categoriaDe(id);
-        const alto = maximo > 0 ? (monto / maximo) * 100 : 0;
+        const alto = maximo > 0 ? (monto / maximo) * 82 : 0;
         return `<span class="stacked-segment" style="height:${alto}%;background:${categoria.color}" title="${categoria.nombre}: ${formatoMoneda.format(monto)}"></span>`;
       }).join('');
-    const etiqueta = dia.fecha.toLocaleDateString('es-PE', { day: 'numeric', month: 'short' }).replace('.', '');
+    const etiqueta = dia.fecha.getDate();
     const fechaCompleta = dia.fecha.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
     const totalEtiqueta = dia.total > 0 ? `<span class="bar-total">${Math.round(dia.total)}</span>` : '';
-    const esHoy = indice === dias.length - 1 ? ' today' : '';
+    const esHoy = claveFecha(dia.fecha) === claveFecha(hoy) ? ' today' : '';
     return `
       <div class="chart-column${esHoy}" style="--bar-height:${altoTotal}%" aria-label="${fechaCompleta}: ${formatoMoneda.format(dia.total)}, ${dia.cantidad} movimientos">
         <div class="stacked-bar">
@@ -488,20 +659,28 @@ function renderizarGraficos() {
   }).join('');
 
   if (!sinDatos) {
-    requestAnimationFrame(() => { scroll.scrollLeft = scroll.scrollWidth; });
+    requestAnimationFrame(() => { scroll.scrollLeft = 0; });
   }
+
+  renderizarAcumulado(dias, total);
+  renderizarMetodos(movimientosMes, total);
 }
 
 function renderizarResumen() {
   const lista = gastosDelPeriodo();
   const total = lista.reduce((suma, gasto) => suma + (Number(gasto.monto) || 0), 0);
-  const promedio = lista.length ? total / lista.length : 0;
+  const indicadorGasolina = document.getElementById('gasolina-indicador');
+  const resumenGasolina = periodoActivo === 'today' ? resumenTanquesLlenos() : null;
 
   document.getElementById('periodo-label').textContent = PERIODOS[periodoActivo];
   document.getElementById('periodo-fechas').textContent = etiquetaFechas();
   document.getElementById('gasto-total').textContent = formatoMoneda.format(total);
   document.getElementById('gasto-movimientos').textContent = lista.length;
-  document.getElementById('gasto-promedio').textContent = formatoMoneda.format(promedio);
+  indicadorGasolina.hidden = !resumenGasolina;
+  if (resumenGasolina) {
+    document.getElementById('gasolina-intervalo').textContent = resumenGasolina.intervalo;
+    document.getElementById('gasolina-desde').textContent = resumenGasolina.desdeUltima;
+  }
 
   renderizarCategorias(lista, total);
   renderizarSemana();
@@ -548,6 +727,19 @@ async function cargarGastos() {
 
 btnActualizar.addEventListener('click', cargarGastos);
 btnActualizarGraficos.addEventListener('click', cargarGastos);
+btnMesAnterior.addEventListener('click', () => {
+  mesGrafico = new Date(mesGrafico.getFullYear(), mesGrafico.getMonth() - 1, 1);
+  renderizarGraficos();
+});
+btnMesSiguiente.addEventListener('click', () => {
+  const siguiente = new Date(mesGrafico.getFullYear(), mesGrafico.getMonth() + 1, 1);
+  const hoy = new Date();
+  const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  if (siguiente <= mesActual) {
+    mesGrafico = siguiente;
+    renderizarGraficos();
+  }
+});
 document.getElementById('reintentar-gastos').addEventListener('click', cargarGastos);
 document.getElementById('reintentar-graficos').addEventListener('click', cargarGastos);
 document.getElementById('ir-a-registrar').addEventListener('click', () => {
