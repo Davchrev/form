@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Registra tus gastos y comidas de forma fácil">
-<meta name="theme-color" content="#6366f1">
+<meta name="theme-color" content="#0f2a43">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Registro">
@@ -17,21 +17,86 @@
 <link rel="stylesheet" href="css/formulario.css">
 </head>
 <body>
-  <div class="page">
-    <header>
-      <h1>Registro</h1>
-      <p>Agrega un nuevo gasto o una comida</p>
+  <div id="auth-loading" class="auth-shell" aria-live="polite">
+    <div class="auth-card auth-loading-card">
+      <span class="loader" aria-hidden="true"></span>
+      <p>Verificando tu sesión...</p>
+    </div>
+  </div>
+
+  <section id="auth-screen" class="auth-shell" aria-labelledby="auth-title" hidden>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span>Mis finanzas</span>
+      </div>
+      <span class="eyebrow">Acceso privado</span>
+      <h1 id="auth-title">Bienvenido de nuevo</h1>
+      <p id="auth-description" class="auth-description">Inicia sesión una vez. La app recordará este dispositivo.</p>
+
+      <form id="auth-form">
+        <div class="field">
+          <label for="auth-email">Correo electrónico</label>
+          <input type="email" id="auth-email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="auth-password">Contraseña</label>
+          <input type="password" id="auth-password" autocomplete="current-password" minlength="6" required>
+        </div>
+        <button type="submit" class="btn-guardar" id="auth-submit">Iniciar sesión</button>
+        <div id="auth-message" role="status" aria-live="polite"></div>
+      </form>
+
+      <p class="auth-footnote">Tus datos se consultan solamente después de verificar tu sesión.</p>
+    </div>
+  </section>
+
+  <div class="page" id="app-shell" hidden>
+    <header class="app-header">
+      <div class="app-header-top">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">D</span>
+          <div>
+            <h1>Mis finanzas</h1>
+            <p>Registra y entiende tus gastos</p>
+          </div>
+        </div>
+        <button type="button" class="account-button" id="cerrar-sesion" title="Cerrar sesión">
+          <span id="usuario-inicial" aria-hidden="true">U</span>
+          <span class="account-copy">
+            <small id="usuario-email">Mi cuenta</small>
+            <strong>Salir</strong>
+          </span>
+        </button>
+      </div>
+      <nav class="app-nav" aria-label="Secciones principales" role="tablist">
+        <button type="button" class="nav-tab active" id="tab-registro" role="tab" aria-selected="true" aria-controls="vista-registro" data-view="registro">
+          Registrar
+        </button>
+        <button type="button" class="nav-tab" id="tab-gastos" role="tab" aria-selected="false" aria-controls="vista-gastos" data-view="gastos">
+          Mis gastos
+        </button>
+        <button type="button" class="nav-tab" id="tab-graficos" role="tab" aria-selected="false" aria-controls="vista-graficos" data-view="graficos">
+          Gráficos
+        </button>
+      </nav>
     </header>
     <main>
-      <form id="form-registro">
-        <div class="field">
+      <section id="vista-registro" class="app-view active" role="tabpanel" aria-labelledby="tab-registro">
+        <div class="section-heading">
+          <span class="eyebrow">Nuevo movimiento</span>
+          <h2>¿Qué deseas registrar?</h2>
+          <p>Completa los datos para mantener todo al día.</p>
+        </div>
+        <form id="form-registro">
+          <div class="field">
           <label for="tipo">Tipo de registro</label>
           <select id="tipo">
             <option value="" selected disabled>Selecciona...</option>
             <option value="gasto">Gasto</option>
             <option value="comida">Comida</option>
           </select>
-        </div>
+          </div>
 
         <div id="campos-gasto">
           <div class="field">
@@ -105,9 +170,155 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-guardar">Guardar</button>
+        <button type="submit" class="btn-guardar">Guardar registro</button>
         <div id="mensaje"></div>
-      </form>
+        </form>
+      </section>
+
+      <section id="vista-gastos" class="app-view" role="tabpanel" aria-labelledby="tab-gastos" hidden>
+        <div class="dashboard-heading">
+          <div>
+            <span class="eyebrow">Resumen</span>
+            <h2>Así van tus gastos</h2>
+          </div>
+          <button type="button" class="btn-refresh" id="actualizar-gastos" aria-label="Actualizar gastos" title="Actualizar gastos">
+            <span aria-hidden="true">↻</span>
+          </button>
+        </div>
+
+        <div class="period-tabs" role="tablist" aria-label="Periodo de gastos">
+          <button type="button" role="tab" class="period-tab active" data-period="today" aria-selected="true">Hoy</button>
+          <button type="button" role="tab" class="period-tab" data-period="week" aria-selected="false">Semana</button>
+          <button type="button" role="tab" class="period-tab" data-period="month" aria-selected="false">Mes</button>
+          <button type="button" role="tab" class="period-tab" data-period="all" aria-selected="false">Total</button>
+        </div>
+
+        <div id="gastos-loading" class="dashboard-state" aria-live="polite">
+          <span class="loader" aria-hidden="true"></span>
+          <p>Cargando tus gastos...</p>
+        </div>
+
+        <div id="gastos-error" class="dashboard-state error-state" hidden>
+          <span class="state-icon" aria-hidden="true">!</span>
+          <h3>No pudimos cargar tus gastos</h3>
+          <p>Revisa tu conexión e intenta nuevamente.</p>
+          <button type="button" class="btn-secondary" id="reintentar-gastos">Reintentar</button>
+        </div>
+
+        <div id="gastos-content" hidden>
+          <article class="total-card">
+            <p id="periodo-label">Gastado hoy</p>
+            <strong id="gasto-total">S/ 0.00</strong>
+            <span id="periodo-fechas">—</span>
+          </article>
+
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Movimientos</span>
+              <strong id="gasto-movimientos">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Promedio</span>
+              <strong id="gasto-promedio">S/ 0.00</strong>
+            </article>
+          </div>
+
+          <section id="desglose-semanal" class="summary-card" aria-labelledby="semana-titulo" hidden>
+            <div class="card-heading">
+              <div>
+                <span class="eyebrow">Lunes a domingo</span>
+                <h3 id="semana-titulo">Gasto por día</h3>
+              </div>
+            </div>
+            <div id="semana-lista" class="week-list"></div>
+          </section>
+
+          <section class="summary-card" aria-labelledby="categorias-titulo">
+            <div class="card-heading">
+              <div>
+                <span class="eyebrow">Distribución</span>
+                <h3 id="categorias-titulo">Por categoría</h3>
+              </div>
+            </div>
+            <div id="categorias-lista" class="category-list"></div>
+            <div id="categorias-vacio" class="empty-inline" hidden>Sin categorías para mostrar.</div>
+          </section>
+
+          <section class="summary-card transactions-card" aria-labelledby="movimientos-titulo">
+            <div class="card-heading">
+              <div>
+                <span class="eyebrow">Detalle</span>
+                <h3 id="movimientos-titulo">Movimientos</h3>
+              </div>
+              <span id="movimientos-cantidad" class="count-pill">0</span>
+            </div>
+            <div id="movimientos-lista" class="transaction-list"></div>
+            <div id="movimientos-vacio" class="empty-state" hidden>
+              <span aria-hidden="true">✓</span>
+              <h3>No hay gastos en este periodo</h3>
+              <p>Cuando registres uno, aparecerá aquí.</p>
+              <button type="button" class="btn-secondary" id="ir-a-registrar">Registrar un gasto</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="vista-graficos" class="app-view" role="tabpanel" aria-labelledby="tab-graficos" hidden>
+        <div class="dashboard-heading">
+          <div>
+            <span class="eyebrow">Últimos 30 días</span>
+            <h2>Frecuencia diaria</h2>
+          </div>
+          <button type="button" class="btn-refresh" id="actualizar-graficos" aria-label="Actualizar gráficos" title="Actualizar gráficos">
+            <span aria-hidden="true">↻</span>
+          </button>
+        </div>
+
+        <div id="graficos-loading" class="dashboard-state" aria-live="polite">
+          <span class="loader" aria-hidden="true"></span>
+          <p>Preparando tus gráficos...</p>
+        </div>
+
+        <div id="graficos-error" class="dashboard-state error-state" hidden>
+          <span class="state-icon" aria-hidden="true">!</span>
+          <h3>No pudimos preparar los gráficos</h3>
+          <p>Revisa tu conexión e intenta nuevamente.</p>
+          <button type="button" class="btn-secondary" id="reintentar-graficos">Reintentar</button>
+        </div>
+
+        <div id="graficos-content" hidden>
+          <div class="metric-grid graph-metrics">
+            <article class="metric-card">
+              <span>Total del periodo</span>
+              <strong id="grafico-total">S/ 0.00</strong>
+            </article>
+            <article class="metric-card">
+              <span>Días con gastos</span>
+              <strong id="grafico-dias">0 de 30</strong>
+            </article>
+          </div>
+
+          <section class="summary-card chart-card" aria-labelledby="grafico-titulo">
+            <div class="card-heading chart-heading">
+              <div>
+                <span class="eyebrow">Por categoría</span>
+                <h3 id="grafico-titulo">Gastos diarios apilados</h3>
+              </div>
+              <strong id="grafico-promedio" class="chart-average">Prom. S/ 0.00</strong>
+            </div>
+            <p class="chart-help">Desliza horizontalmente para recorrer los días.</p>
+            <div id="grafico-leyenda" class="chart-legend" aria-label="Categorías del gráfico"></div>
+            <div class="chart-scroll" id="grafico-scroll" tabindex="0" aria-label="Gráfico de gastos diarios de los últimos 30 días">
+              <div id="grafico-barras" class="stacked-chart"></div>
+            </div>
+            <div id="grafico-vacio" class="empty-state chart-empty" hidden>
+              <span aria-hidden="true">↗</span>
+              <h3>Aún no hay gastos en este periodo</h3>
+              <p>Registra un gasto para empezar a ver la tendencia.</p>
+            </div>
+          </section>
+        </div>
+      </section>
     </main>
   </div>
 

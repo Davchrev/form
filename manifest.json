@@ -1,12 +1,12 @@
 {
   "name": "Registro de Gastos y Comidas",
   "short_name": "Registro",
-  "description": "Registra tus gastos y comidas de forma fácil y rápida",
+  "description": "Registra tus gastos y revisa tus resúmenes diarios, semanales y mensuales",
   "start_url": "/form/",
   "scope": "/form/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#6366f1",
+  "theme_color": "#0f2a43",
   "background_color": "#ffffff",
   "prefer_related_applications": false,
   "icons": [
