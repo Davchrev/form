@@ -206,6 +206,12 @@
         </div>
 
         <div id="gastos-content" hidden>
+          <div id="resumen-mes-navegacion" class="month-navigation" role="group" aria-label="Cambiar mes del resumen" hidden>
+            <button type="button" id="resumen-mes-anterior" aria-label="Ver mes anterior">‹</button>
+            <strong id="resumen-mes-label">Mes actual</strong>
+            <button type="button" id="resumen-mes-siguiente" aria-label="Ver mes siguiente">›</button>
+          </div>
+
           <article class="total-card">
             <div class="total-card-top">
               <p id="periodo-label">Gastado hoy</p>
@@ -318,6 +324,16 @@
             <div id="grafico-leyenda" class="chart-legend" aria-label="Categorías del gráfico"></div>
             <div class="chart-scroll" id="grafico-scroll" tabindex="0" aria-label="Gráfico de gastos diarios del mes seleccionado">
               <div id="grafico-barras" class="stacked-chart"></div>
+            </div>
+            <div id="grafico-dia-detalle" class="chart-day-detail" aria-live="polite" hidden>
+              <div class="card-heading chart-day-heading">
+                <div>
+                  <span class="eyebrow">Productos del día</span>
+                  <h3 id="grafico-dia-titulo">Detalle diario</h3>
+                </div>
+                <strong id="grafico-dia-total" class="chart-average">S/ 0.00</strong>
+              </div>
+              <div id="grafico-dia-lista" class="chart-day-list"></div>
             </div>
             <div id="grafico-vacio" class="empty-state chart-empty" hidden>
               <span aria-hidden="true">↗</span>

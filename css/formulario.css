@@ -621,6 +621,8 @@ main { padding: 28px 28px 36px; }
   background: var(--white);
 }
 
+.month-navigation[hidden] { display: none; }
+
 .month-navigation strong { color: var(--navy); font-size: 13px; text-align: center; text-transform: capitalize; }
 .month-navigation button {
   display: grid;
@@ -702,8 +704,17 @@ main { padding: 28px 28px 36px; }
   flex-direction: column;
   justify-content: flex-end;
   height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   scroll-snap-align: center;
 }
+
+.chart-column:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chart-column.selected .bar-label { border-radius: 5px; background: var(--accent-soft); color: var(--accent-dark); font-weight: 800; }
 
 .stacked-bar {
   position: relative;
@@ -759,6 +770,17 @@ main { padding: 28px 28px 36px; }
 
 .chart-empty { min-height: 230px; padding: 0 18px; }
 .chart-empty[hidden] { display: none; }
+
+.chart-day-detail {
+  margin-top: 12px;
+  padding: 16px 18px 4px;
+  border-top: 1px solid var(--line);
+}
+
+.chart-day-detail[hidden] { display: none; }
+.chart-day-heading { margin-bottom: 8px; }
+.chart-day-heading h3 { text-transform: capitalize; }
+.chart-day-empty { padding: 14px 0 18px; color: var(--muted); font-size: 10.5px; text-align: center; }
 
 .secondary-chart-card { overflow: hidden; }
 .line-chart { width: 100%; min-height: 160px; }

@@ -52,6 +52,9 @@ const graficosContent = document.getElementById('graficos-content');
 const btnActualizarGraficos = document.getElementById('actualizar-graficos');
 const btnMesAnterior = document.getElementById('mes-anterior');
 const btnMesSiguiente = document.getElementById('mes-siguiente');
+const resumenMesNavegacion = document.getElementById('resumen-mes-navegacion');
+const btnResumenMesAnterior = document.getElementById('resumen-mes-anterior');
+const btnResumenMesSiguiente = document.getElementById('resumen-mes-siguiente');
 const authLoading = document.getElementById('auth-loading');
 const authScreen = document.getElementById('auth-screen');
 const appShell = document.getElementById('app-shell');
@@ -68,6 +71,8 @@ let periodoActivo = 'today';
 let sesionActual = null;
 let diaSemanaAbierto = null;
 let mesGrafico = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let mesResumen = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let diaGraficoSeleccionado = null;
 
 function mostrarMensajeAuth(texto, tipoMensaje = 'error') {
   authMessage.textContent = texto;
@@ -240,8 +245,8 @@ function rangoPeriodo(periodo) {
   }
 
   if (periodo === 'month') {
-    const inicio = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-    const fin = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1);
+    const inicio = new Date(mesResumen.getFullYear(), mesResumen.getMonth(), 1);
+    const fin = new Date(mesResumen.getFullYear(), mesResumen.getMonth() + 1, 1);
     return { inicio, fin };
   }
 
@@ -275,7 +280,7 @@ function etiquetaFechas() {
   }
 
   if (periodoActivo === 'month') {
-    return ahora.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+    return mesResumen.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
   }
 
   return gastos.length ? 'Todos tus registros' : 'Sin registros todavía';
@@ -494,6 +499,7 @@ function diasDelMesGrafico() {
       categorias: new Map(),
       total: 0,
       cantidad: 0,
+      movimientos: [],
     });
   }
 
@@ -509,6 +515,7 @@ function diasDelMesGrafico() {
     dia.categorias.set(categoriaId, (dia.categorias.get(categoriaId) || 0) + monto);
     dia.total += monto;
     dia.cantidad += 1;
+    dia.movimientos.push(gasto);
   });
 
   return dias;
@@ -596,6 +603,49 @@ function renderizarMetodos(movimientos, total) {
   }).join('');
 }
 
+function renderizarDetalleDiaGrafico(dia) {
+  const detalle = document.getElementById('grafico-dia-detalle');
+  const lista = document.getElementById('grafico-dia-lista');
+
+  if (!dia) {
+    detalle.hidden = true;
+    lista.innerHTML = '';
+    return;
+  }
+
+  detalle.hidden = false;
+  document.getElementById('grafico-dia-titulo').textContent = dia.fecha.toLocaleDateString('es-PE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  document.getElementById('grafico-dia-total').textContent = formatoMoneda.format(dia.total);
+
+  if (!dia.movimientos.length) {
+    lista.innerHTML = '<p class="chart-day-empty">No registraste gastos este día.</p>';
+    return;
+  }
+
+  lista.innerHTML = dia.movimientos.map((gasto) => {
+    const categoria = categoriaDe(gasto.categoria_id);
+    const concepto = escapeHTML(gasto.concepto || categoria.nombre);
+    const metodo = escapeHTML(gasto.metodo_pago || 'Sin método');
+    const fecha = new Date(gasto.fecha);
+    const hora = Number.isNaN(fecha.getTime())
+      ? 'Sin hora'
+      : fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    return `
+      <article class="transaction-item">
+        <span class="transaction-icon" style="color:${categoria.color};background:${categoria.fondo}" aria-hidden="true">${categoria.nombre.charAt(0)}</span>
+        <div class="transaction-info">
+          <strong>${concepto}</strong>
+          <span>${categoria.nombre} · ${metodo} · ${hora}</span>
+        </div>
+        <strong class="transaction-amount">− ${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
+      </article>`;
+  }).join('');
+}
+
 function renderizarGraficos() {
   const dias = diasDelMesGrafico();
   const movimientosMes = gastosDelMesGrafico();
@@ -635,7 +685,8 @@ function renderizarGraficos() {
   leyenda.hidden = sinDatos;
   vacio.hidden = !sinDatos;
 
-  grafico.innerHTML = dias.map((dia, indice) => {
+  grafico.innerHTML = dias.map((dia) => {
+    const clave = claveFecha(dia.fecha);
     const altoTotal = maximo > 0 ? (dia.total / maximo) * 82 : 0;
     const segmentos = [...dia.categorias.entries()]
       .sort((a, b) => a[0] - b[0])
@@ -647,20 +698,36 @@ function renderizarGraficos() {
     const etiqueta = dia.fecha.getDate();
     const fechaCompleta = dia.fecha.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
     const totalEtiqueta = dia.total > 0 ? `<span class="bar-total">${Math.round(dia.total)}</span>` : '';
-    const esHoy = claveFecha(dia.fecha) === claveFecha(hoy) ? ' today' : '';
+    const esHoy = clave === claveFecha(hoy) ? ' today' : '';
+    const seleccionado = clave === diaGraficoSeleccionado ? ' selected' : '';
     return `
-      <div class="chart-column${esHoy}" style="--bar-height:${altoTotal}%" aria-label="${fechaCompleta}: ${formatoMoneda.format(dia.total)}, ${dia.cantidad} movimientos">
-        <div class="stacked-bar">
+      <button type="button" class="chart-column${esHoy}${seleccionado}" data-day="${clave}" style="--bar-height:${altoTotal}%" aria-label="${fechaCompleta}: ${formatoMoneda.format(dia.total)}, ${dia.cantidad} movimientos" aria-pressed="${Boolean(seleccionado)}">
+        <span class="stacked-bar">
           ${segmentos}
           ${totalEtiqueta}
-        </div>
+        </span>
         <span class="bar-label">${etiqueta}</span>
-      </div>`;
+      </button>`;
   }).join('');
+
+  grafico.querySelectorAll('.chart-column').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      diaGraficoSeleccionado = boton.dataset.day;
+      grafico.querySelectorAll('.chart-column').forEach((columna) => {
+        const seleccionado = columna === boton;
+        columna.classList.toggle('selected', seleccionado);
+        columna.setAttribute('aria-pressed', String(seleccionado));
+      });
+      renderizarDetalleDiaGrafico(dias.find((dia) => claveFecha(dia.fecha) === diaGraficoSeleccionado));
+    });
+  });
 
   if (!sinDatos) {
     requestAnimationFrame(() => { scroll.scrollLeft = 0; });
   }
+
+  const diaSeleccionado = dias.find((dia) => claveFecha(dia.fecha) === diaGraficoSeleccionado);
+  renderizarDetalleDiaGrafico(sinDatos ? null : diaSeleccionado);
 
   renderizarAcumulado(dias, total);
   renderizarMetodos(movimientosMes, total);
@@ -671,8 +738,20 @@ function renderizarResumen() {
   const total = lista.reduce((suma, gasto) => suma + (Number(gasto.monto) || 0), 0);
   const indicadorGasolina = document.getElementById('gasolina-indicador');
   const resumenGasolina = periodoActivo === 'today' ? resumenTanquesLlenos() : null;
+  const hoy = new Date();
+  const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const esVistaMensual = periodoActivo === 'month';
 
-  document.getElementById('periodo-label').textContent = PERIODOS[periodoActivo];
+  resumenMesNavegacion.hidden = !esVistaMensual;
+  if (esVistaMensual) {
+    document.getElementById('resumen-mes-label').textContent = mesResumen.toLocaleDateString('es-PE', {
+      month: 'long',
+      year: 'numeric',
+    });
+    btnResumenMesSiguiente.disabled = mesResumen.getTime() === mesActual.getTime();
+  }
+
+  document.getElementById('periodo-label').textContent = esVistaMensual ? 'Gastado en el mes' : PERIODOS[periodoActivo];
   document.getElementById('periodo-fechas').textContent = etiquetaFechas();
   document.getElementById('gasto-total').textContent = formatoMoneda.format(total);
   document.getElementById('gasto-movimientos').textContent = lista.length;
@@ -729,6 +808,7 @@ btnActualizar.addEventListener('click', cargarGastos);
 btnActualizarGraficos.addEventListener('click', cargarGastos);
 btnMesAnterior.addEventListener('click', () => {
   mesGrafico = new Date(mesGrafico.getFullYear(), mesGrafico.getMonth() - 1, 1);
+  diaGraficoSeleccionado = null;
   renderizarGraficos();
 });
 btnMesSiguiente.addEventListener('click', () => {
@@ -737,7 +817,21 @@ btnMesSiguiente.addEventListener('click', () => {
   const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   if (siguiente <= mesActual) {
     mesGrafico = siguiente;
+    diaGraficoSeleccionado = null;
     renderizarGraficos();
+  }
+});
+btnResumenMesAnterior.addEventListener('click', () => {
+  mesResumen = new Date(mesResumen.getFullYear(), mesResumen.getMonth() - 1, 1);
+  renderizarResumen();
+});
+btnResumenMesSiguiente.addEventListener('click', () => {
+  const siguiente = new Date(mesResumen.getFullYear(), mesResumen.getMonth() + 1, 1);
+  const hoy = new Date();
+  const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  if (siguiente <= mesActual) {
+    mesResumen = siguiente;
+    renderizarResumen();
   }
 });
 document.getElementById('reintentar-gastos').addEventListener('click', cargarGastos);
