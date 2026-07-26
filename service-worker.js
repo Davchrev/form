@@ -1,5 +1,5 @@
-const CACHE_NAME = 'registro-v8';
-const urlsToCache = [
+const CACHE_NAME = 'registro-v9';
+const URLS_TO_CACHE = [
   '/form/',
   '/form/index.html',
   '/form/css/formulario.css',
@@ -11,7 +11,7 @@ const urlsToCache = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
+      .then((cache) => cache.addAll(URLS_TO_CACHE))
       .then(() => self.skipWaiting())
   );
 });
@@ -31,7 +31,15 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
+  const url = new URL(event.request.url);
+
+  // Supabase es la fuente de verdad: sus respuestas nunca pasan por Cache Storage.
+  if (url.hostname.endsWith('.supabase.co')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  if (event.request.method !== 'GET' || !esRecursoEstatico(event.request, url)) {
     return;
   }
 
@@ -62,3 +70,13 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+function esRecursoEstatico(request, url) {
+  const origenPermitido = url.origin === self.location.origin
+    || url.origin === 'https://fonts.googleapis.com'
+    || url.origin === 'https://fonts.gstatic.com'
+    || url.origin === 'https://cdn.jsdelivr.net';
+  const destinosEstaticos = new Set(['document', 'font', 'image', 'manifest', 'script', 'style']);
+
+  return origenPermitido && destinosEstaticos.has(request.destination);
+}

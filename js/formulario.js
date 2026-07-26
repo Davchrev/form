@@ -194,7 +194,8 @@ function cambiarVista(nombre) {
     vista.hidden = !activa;
   });
 
-  if ((nombre === 'gastos' || nombre === 'graficos') && !gastosCargados) {
+  // Consultar siempre al abrir un panel para reflejar también cambios hechos fuera de la app.
+  if (nombre === 'gastos' || nombre === 'graficos') {
     cargarGastos();
   }
 }
@@ -910,7 +911,15 @@ form.addEventListener('submit', async (event) => {
     form.reset();
     camposGasto.style.display = 'none';
     camposComida.style.display = 'none';
-    if (tabla === 'gastos_david') gastosCargados = false;
+    if (tabla === 'gastos_david') {
+      gastosCargados = false;
+      try {
+        await cargarGastos();
+      } catch (errorSincronizacion) {
+        console.error(errorSincronizacion);
+        gastosCargados = false;
+      }
+    }
   } catch (error) {
     console.error(error);
     mostrarMensaje('No se pudo guardar. Intenta de nuevo.', 'error');
