@@ -1,4 +1,4 @@
-const CACHE_NAME = 'registro-v9';
+const CACHE_NAME = 'registro-v10';
 const URLS_TO_CACHE = [
   '/form/',
   '/form/index.html',

@@ -332,12 +332,10 @@ function resumenTanquesLlenos() {
     return { intervalo: 'Sin intervalo todavía', desdeUltima: textoDesdeUltima };
   }
 
-  const intervalos = cargas.slice(1).map((fecha, indice) => (
-    Math.max(0, Math.round((fecha - cargas[indice]) / 86400000))
-  ));
-  const promedioDias = Math.round(intervalos.reduce((suma, dias) => suma + dias, 0) / intervalos.length);
+  const penultima = cargas[cargas.length - 2];
+  const ultimoIntervaloDias = Math.max(0, Math.round((ultima - penultima) / 86400000));
   return {
-    intervalo: `${promedioDias} ${promedioDias === 1 ? 'día' : 'días'}`,
+    intervalo: `${ultimoIntervaloDias} ${ultimoIntervaloDias === 1 ? 'día' : 'días'}`,
     desdeUltima: textoDesdeUltima,
   };
 }
