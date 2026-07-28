@@ -206,6 +206,12 @@
         </div>
 
         <div id="gastos-content" hidden>
+          <div id="resumen-semana-navegacion" class="month-navigation" role="group" aria-label="Cambiar semana del resumen" hidden>
+            <button type="button" id="resumen-semana-anterior" aria-label="Ver semana anterior">‹</button>
+            <strong id="resumen-semana-label">Semana actual</strong>
+            <button type="button" id="resumen-semana-siguiente" aria-label="Ver semana siguiente">›</button>
+          </div>
+
           <div id="resumen-mes-navegacion" class="month-navigation" role="group" aria-label="Cambiar mes del resumen" hidden>
             <button type="button" id="resumen-mes-anterior" aria-label="Ver mes anterior">‹</button>
             <strong id="resumen-mes-label">Mes actual</strong>
@@ -250,6 +256,27 @@
             </div>
             <div id="categorias-lista" class="category-list"></div>
             <div id="categorias-vacio" class="empty-inline" hidden>Sin categorías para mostrar.</div>
+          </section>
+
+          <section id="desglose-mes-semanal" class="summary-card" aria-labelledby="mes-semanal-titulo" hidden>
+            <div class="card-heading">
+              <div>
+                <span class="eyebrow">Distribución del mes</span>
+                <h3 id="mes-semanal-titulo">Por semana</h3>
+              </div>
+            </div>
+            <div id="mes-semanal-lista" class="period-breakdown-list"></div>
+          </section>
+
+          <section id="desglose-mensual" class="summary-card" aria-labelledby="mensual-titulo" hidden>
+            <div class="card-heading">
+              <div>
+                <span class="eyebrow">Distribución total</span>
+                <h3 id="mensual-titulo">Por mes</h3>
+              </div>
+            </div>
+            <div id="mensual-lista" class="period-breakdown-list"></div>
+            <div id="mensual-vacio" class="empty-inline" hidden>Sin meses para mostrar.</div>
           </section>
 
           <section class="summary-card transactions-card" aria-labelledby="movimientos-titulo">

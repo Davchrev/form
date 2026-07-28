@@ -52,6 +52,9 @@ const graficosContent = document.getElementById('graficos-content');
 const btnActualizarGraficos = document.getElementById('actualizar-graficos');
 const btnMesAnterior = document.getElementById('mes-anterior');
 const btnMesSiguiente = document.getElementById('mes-siguiente');
+const resumenSemanaNavegacion = document.getElementById('resumen-semana-navegacion');
+const btnResumenSemanaAnterior = document.getElementById('resumen-semana-anterior');
+const btnResumenSemanaSiguiente = document.getElementById('resumen-semana-siguiente');
 const resumenMesNavegacion = document.getElementById('resumen-mes-navegacion');
 const btnResumenMesAnterior = document.getElementById('resumen-mes-anterior');
 const btnResumenMesSiguiente = document.getElementById('resumen-mes-siguiente');
@@ -72,6 +75,7 @@ let sesionActual = null;
 let diaSemanaAbierto = null;
 let mesGrafico = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let mesResumen = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let semanaResumen = inicioDeSemana(new Date());
 let diaGraficoSeleccionado = null;
 
 function mostrarMensajeAuth(texto, tipoMensaje = 'error') {
@@ -220,6 +224,13 @@ function inicioDelDia(fecha = new Date()) {
   return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
 }
 
+function inicioDeSemana(fecha = new Date()) {
+  const inicio = inicioDelDia(fecha);
+  const dia = inicio.getDay();
+  inicio.setDate(inicio.getDate() - (dia === 0 ? 6 : dia - 1));
+  return inicio;
+}
+
 function claveFecha(fecha) {
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getDate()).padStart(2, '0');
@@ -237,9 +248,7 @@ function rangoPeriodo(periodo) {
   }
 
   if (periodo === 'week') {
-    const inicio = inicioDelDia(ahora);
-    const dia = inicio.getDay();
-    inicio.setDate(inicio.getDate() - (dia === 0 ? 6 : dia - 1));
+    const inicio = new Date(semanaResumen);
     const fin = new Date(inicio);
     fin.setDate(fin.getDate() + 7);
     return { inicio, fin };
@@ -469,6 +478,91 @@ function renderizarSemana() {
       renderizarSemana();
     });
   });
+}
+
+function crearFilaDistribucion({ titulo, subtitulo, monto, cantidad, porcentaje }) {
+  const movimientos = cantidad === 1 ? '1 movimiento' : `${cantidad} movimientos`;
+  return `
+    <div class="period-breakdown-item">
+      <div class="period-breakdown-row">
+        <span class="period-breakdown-label">
+          <strong>${titulo}</strong>
+          <span>${subtitulo} · ${movimientos}</span>
+        </span>
+        <strong>${formatoMoneda.format(monto)}</strong>
+      </div>
+      <div class="period-breakdown-track" aria-label="${titulo}: ${formatoMoneda.format(monto)}">
+        <span style="width:${porcentaje}%"></span>
+      </div>
+    </div>`;
+}
+
+function renderizarSemanasDelMes() {
+  const seccion = document.getElementById('desglose-mes-semanal');
+  const contenedor = document.getElementById('mes-semanal-lista');
+  const visible = periodoActivo === 'month';
+  seccion.hidden = !visible;
+  if (!visible) return;
+
+  const movimientosMes = gastosDelPeriodo();
+  const totalMes = movimientosMes.reduce((suma, gasto) => suma + (Number(gasto.monto) || 0), 0);
+  const ultimoDia = new Date(mesResumen.getFullYear(), mesResumen.getMonth() + 1, 0).getDate();
+  const semanas = [];
+
+  for (let primerDia = 1, numero = 1; primerDia <= ultimoDia; primerDia += 7, numero += 1) {
+    const diaFinal = Math.min(primerDia + 6, ultimoDia);
+    const inicio = new Date(mesResumen.getFullYear(), mesResumen.getMonth(), primerDia);
+    const fin = new Date(mesResumen.getFullYear(), mesResumen.getMonth(), diaFinal + 1);
+    const movimientos = movimientosMes.filter((gasto) => {
+      const fecha = new Date(gasto.fecha);
+      return !Number.isNaN(fecha.getTime()) && fecha >= inicio && fecha < fin;
+    });
+    const monto = movimientos.reduce((suma, gasto) => suma + (Number(gasto.monto) || 0), 0);
+    const mes = inicio.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '');
+    semanas.push({
+      titulo: diaFinal - primerDia < 6 ? `Semana del ${primerDia} al ${diaFinal}` : `Semana ${numero}`,
+      subtitulo: `${primerDia} al ${diaFinal} de ${mes}`,
+      monto,
+      cantidad: movimientos.length,
+    });
+  }
+
+  contenedor.innerHTML = semanas.map((semana) => crearFilaDistribucion({
+    ...semana,
+    porcentaje: totalMes > 0 ? (semana.monto / totalMes) * 100 : 0,
+  })).join('');
+}
+
+function renderizarMesesDelTotal() {
+  const seccion = document.getElementById('desglose-mensual');
+  const contenedor = document.getElementById('mensual-lista');
+  const vacio = document.getElementById('mensual-vacio');
+  const visible = periodoActivo === 'all';
+  seccion.hidden = !visible;
+  if (!visible) return;
+
+  const acumulado = new Map();
+  gastos.forEach((gasto) => {
+    const fecha = new Date(gasto.fecha);
+    if (Number.isNaN(fecha.getTime())) return;
+    const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+    const mes = acumulado.get(clave) || { fecha: new Date(fecha.getFullYear(), fecha.getMonth(), 1), monto: 0, cantidad: 0 };
+    mes.monto += Number(gasto.monto) || 0;
+    mes.cantidad += 1;
+    acumulado.set(clave, mes);
+  });
+
+  const meses = [...acumulado.values()].sort((a, b) => b.fecha - a.fecha);
+  const total = meses.reduce((suma, mes) => suma + mes.monto, 0);
+  vacio.hidden = meses.length > 0;
+  contenedor.hidden = meses.length === 0;
+  contenedor.innerHTML = meses.map((mes) => crearFilaDistribucion({
+    titulo: mes.fecha.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }),
+    subtitulo: total > 0 ? `${Math.round((mes.monto / total) * 100)}% del total` : '0% del total',
+    monto: mes.monto,
+    cantidad: mes.cantidad,
+    porcentaje: total > 0 ? (mes.monto / total) * 100 : 0,
+  })).join('');
 }
 
 function gastosDelMesGrafico() {
@@ -740,8 +834,19 @@ function renderizarResumen() {
   const hoy = new Date();
   const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   const esVistaMensual = periodoActivo === 'month';
+  const esVistaSemanal = periodoActivo === 'week';
 
+  resumenSemanaNavegacion.hidden = !esVistaSemanal;
   resumenMesNavegacion.hidden = !esVistaMensual;
+  if (esVistaSemanal) {
+    const inicioSemanaActual = inicioDeSemana(hoy);
+    const finSemana = new Date(semanaResumen);
+    finSemana.setDate(finSemana.getDate() + 6);
+    const desde = semanaResumen.toLocaleDateString('es-PE', { day: 'numeric', month: 'short' });
+    const hasta = finSemana.toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
+    document.getElementById('resumen-semana-label').textContent = `${desde} – ${hasta}`;
+    btnResumenSemanaSiguiente.disabled = semanaResumen.getTime() === inicioSemanaActual.getTime();
+  }
   if (esVistaMensual) {
     document.getElementById('resumen-mes-label').textContent = mesResumen.toLocaleDateString('es-PE', {
       month: 'long',
@@ -750,7 +855,11 @@ function renderizarResumen() {
     btnResumenMesSiguiente.disabled = mesResumen.getTime() === mesActual.getTime();
   }
 
-  document.getElementById('periodo-label').textContent = esVistaMensual ? 'Gastado en el mes' : PERIODOS[periodoActivo];
+  document.getElementById('periodo-label').textContent = esVistaMensual
+    ? 'Gastado en el mes'
+    : esVistaSemanal
+      ? 'Gastado en la semana'
+      : PERIODOS[periodoActivo];
   document.getElementById('periodo-fechas').textContent = etiquetaFechas();
   document.getElementById('gasto-total').textContent = formatoMoneda.format(total);
   document.getElementById('gasto-movimientos').textContent = lista.length;
@@ -762,6 +871,8 @@ function renderizarResumen() {
 
   renderizarCategorias(lista, total);
   renderizarSemana();
+  renderizarSemanasDelMes();
+  renderizarMesesDelTotal();
   renderizarMovimientos(lista);
 }
 
@@ -830,6 +941,20 @@ btnResumenMesSiguiente.addEventListener('click', () => {
   const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   if (siguiente <= mesActual) {
     mesResumen = siguiente;
+    renderizarResumen();
+  }
+});
+btnResumenSemanaAnterior.addEventListener('click', () => {
+  semanaResumen = new Date(semanaResumen.getFullYear(), semanaResumen.getMonth(), semanaResumen.getDate() - 7);
+  diaSemanaAbierto = null;
+  renderizarResumen();
+});
+btnResumenSemanaSiguiente.addEventListener('click', () => {
+  const siguiente = new Date(semanaResumen.getFullYear(), semanaResumen.getMonth(), semanaResumen.getDate() + 7);
+  const semanaActual = inicioDeSemana(new Date());
+  if (siguiente <= semanaActual) {
+    semanaResumen = siguiente;
+    diaSemanaAbierto = null;
     renderizarResumen();
   }
 });
