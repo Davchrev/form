@@ -529,6 +529,27 @@ main { padding: 28px 28px 36px; }
 
 .category-item + .category-item { margin-top: 14px; }
 .category-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.category-button {
+  appearance: none;
+  display: block;
+  width: 100%;
+  padding: 7px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.category-button:hover { background: #f7f9fb; }
+.category-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.category-item.selected .category-button { background: #f4f8fc; }
+.category-value { display: flex; align-items: center; gap: 7px; }
+.category-chevron { color: var(--muted); font-size: 14px; transition: transform .18s ease; }
+.category-button[aria-expanded="true"] > .category-row .category-chevron,
+.category-month-button[aria-expanded="true"] .category-chevron { transform: rotate(180deg); }
+.category-help { margin: 10px 7px 0; color: var(--muted); font-size: 9.5px; }
 
 .category-name {
   display: flex;
@@ -547,8 +568,50 @@ main { padding: 28px 28px 36px; }
 }
 
 .category-amount { font-size: 11.5px; font-weight: 700; }
-.category-bar { height: 5px; margin-top: 7px; overflow: hidden; border-radius: 5px; background: #edf1f4; }
+.category-bar { display: block; height: 5px; margin-top: 7px; overflow: hidden; border-radius: 5px; background: #edf1f4; }
 .category-bar span { display: block; height: 100%; min-width: 3px; border-radius: inherit; }
+
+.category-drilldown {
+  margin: 7px 7px 4px;
+  padding: 11px 12px;
+  border-left: 2px solid var(--accent-soft);
+  border-radius: 0 9px 9px 0;
+  background: #f8fafc;
+}
+.category-drilldown > p { margin-bottom: 8px; color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.category-month-list { display: grid; gap: 7px; }
+.category-month-item + .category-month-item { padding-top: 7px; border-top: 1px solid #e6ebf0; }
+.category-month-button {
+  appearance: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 12px;
+  width: 100%;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.category-month-button:hover { background: #f1f5f8; }
+.category-month-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.category-month-copy strong,
+.category-month-copy span { display: block; }
+.category-month-copy strong { color: var(--navy); font-size: 10.5px; text-transform: capitalize; }
+.category-month-copy span { margin-top: 1px; color: var(--muted); font-size: 9px; }
+.category-month-value { display: flex; align-items: center; gap: 7px; color: var(--navy); font-size: 10.5px; }
+.category-month-track { grid-column: 1 / -1; height: 4px; overflow: hidden; border-radius: 4px; background: #e8edf2; }
+.category-month-track span { display: block; height: 100%; border-radius: inherit; }
+.category-month-detail { margin: 3px 5px 4px 12px; padding: 2px 9px; border-left: 2px solid #dbe6f0; background: var(--white); }
+.category-month-detail[hidden] { display: none; }
+.category-operation-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 8px 0; border-top: 1px solid #e8edf2; }
+.category-operation-row:first-child { border-top: 0; }
+.category-operation-row > span { min-width: 0; color: var(--muted); font-size: 9px; }
+.category-operation-row > span strong { display: block; overflow: hidden; margin-bottom: 1px; color: var(--navy); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.category-operation-row > strong { color: var(--navy); font-size: 10px; white-space: nowrap; }
 
 /* Period distributions */
 .period-breakdown-list { display: grid; gap: 14px; }
@@ -839,6 +902,36 @@ main { padding: 28px 28px 36px; }
 .transaction-info strong { display: block; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .transaction-info span { display: block; margin-top: 1px; color: var(--muted); font-size: 10px; }
 .transaction-amount { font-size: 12px; color: var(--navy); white-space: nowrap; }
+
+.monthly-transaction-list { display: grid; gap: 8px; }
+.movement-month-item + .movement-month-item { border-top: 1px solid var(--line); padding-top: 8px; }
+.movement-month-button {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 5px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.movement-month-button:hover { background: #f7f9fb; }
+.movement-month-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.movement-month-button > span:first-child > strong,
+.movement-month-button small { display: block; }
+.movement-month-button > span:first-child > strong { color: var(--navy); font-size: 11.5px; text-transform: capitalize; }
+.movement-month-button small { margin-top: 2px; color: var(--muted); font-size: 9.5px; }
+.movement-month-value { display: flex; align-items: center; gap: 8px; color: var(--navy); font-size: 11.5px; }
+.movement-month-chevron { color: var(--muted); font-size: 14px; transition: transform .18s ease; }
+.movement-month-button[aria-expanded="true"] .movement-month-chevron { transform: rotate(180deg); }
+.movement-month-detail { margin: 2px 5px 6px 12px; padding: 6px 10px; border-left: 2px solid var(--accent-soft); background: #f8fafc; }
+.movement-month-detail[hidden] { display: none; }
 
 .dashboard-state,
 .empty-state {

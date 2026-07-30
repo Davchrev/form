@@ -77,6 +77,9 @@ let mesGrafico = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let mesResumen = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let semanaResumen = inicioDeSemana(new Date());
 let diaGraficoSeleccionado = null;
+let categoriaTotalAbierta = null;
+let mesCategoriaTotalAbierto = null;
+let mesMovimientosTotalAbierto = null;
 
 function mostrarMensajeAuth(texto, tipoMensaje = 'error') {
   authMessage.textContent = texto;
@@ -210,7 +213,13 @@ navTabs.forEach((tab) => {
 
 periodTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
+    const periodoAnterior = periodoActivo;
     periodoActivo = tab.dataset.period;
+    if (periodoActivo === 'all' && periodoAnterior !== 'all') {
+      categoriaTotalAbierta = null;
+      mesCategoriaTotalAbierto = null;
+      mesMovimientosTotalAbierto = null;
+    }
     periodTabs.forEach((item) => {
       const activa = item === tab;
       item.classList.toggle('active', activa);
@@ -352,6 +361,7 @@ function resumenTanquesLlenos() {
 function renderizarCategorias(lista, total) {
   const contenedor = document.getElementById('categorias-lista');
   const vacio = document.getElementById('categorias-vacio');
+  const ayuda = document.getElementById('categorias-ayuda');
   const acumulado = new Map();
 
   lista.forEach((gasto) => {
@@ -360,24 +370,150 @@ function renderizarCategorias(lista, total) {
   });
 
   const categorias = [...acumulado.entries()].sort((a, b) => b[1] - a[1]);
+  if (periodoActivo === 'all' && categoriaTotalAbierta !== null && !acumulado.has(categoriaTotalAbierta)) {
+    categoriaTotalAbierta = null;
+    mesCategoriaTotalAbierto = null;
+  }
   vacio.hidden = categorias.length > 0;
+  ayuda.hidden = periodoActivo !== 'all' || categorias.length === 0;
   contenedor.innerHTML = categorias.map(([id, monto]) => {
     const categoria = categoriaDe(id);
     const porcentaje = total > 0 ? (monto / total) * 100 : 0;
-    return `
-      <div class="category-item">
-        <div class="category-row">
-          <span class="category-name">
-            <span class="category-dot" style="background:${categoria.color}"></span>
-            ${categoria.nombre}
-          </span>
+    const esInteractiva = periodoActivo === 'all';
+    const seleccionada = esInteractiva && categoriaTotalAbierta === id;
+    const contenido = `
+      <span class="category-row">
+        <span class="category-name">
+          <span class="category-dot" style="background:${categoria.color}"></span>
+          ${categoria.nombre}
+        </span>
+        <span class="category-value">
           <span class="category-amount">${formatoMoneda.format(monto)} · ${Math.round(porcentaje)}%</span>
-        </div>
-        <div class="category-bar" aria-label="${categoria.nombre}: ${Math.round(porcentaje)}%">
-          <span style="width:${porcentaje}%;background:${categoria.color}"></span>
+          ${esInteractiva ? '<span class="category-chevron" aria-hidden="true">⌄</span>' : ''}
+        </span>
+      </span>
+      <span class="category-bar" aria-label="${categoria.nombre}: ${Math.round(porcentaje)}%">
+        <span style="width:${porcentaje}%;background:${categoria.color}"></span>
+      </span>`;
+    return `
+      <div class="category-item${seleccionada ? ' selected' : ''}">
+        ${esInteractiva
+    ? `<button type="button" class="category-button" data-category="${id}" aria-expanded="${seleccionada}" aria-controls="detalle-categoria-${id}">${contenido}</button>`
+    : contenido}
+        ${seleccionada ? crearDesgloseCategoria(id, lista) : ''}
+      </div>`;
+  }).join('');
+
+  contenedor.querySelectorAll('.category-button').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      const categoriaId = Number(boton.dataset.category);
+      categoriaTotalAbierta = categoriaTotalAbierta === categoriaId ? null : categoriaId;
+      mesCategoriaTotalAbierto = null;
+      renderizarCategorias(lista, total);
+    });
+  });
+
+  contenedor.querySelectorAll('.category-month-button').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      mesCategoriaTotalAbierto = mesCategoriaTotalAbierto === boton.dataset.month ? null : boton.dataset.month;
+      renderizarCategorias(lista, total);
+    });
+  });
+}
+
+function agruparMovimientosPorMes(lista) {
+  const acumulado = new Map();
+  lista.forEach((gasto) => {
+    const fecha = new Date(gasto.fecha);
+    const valida = !Number.isNaN(fecha.getTime());
+    const clave = valida
+      ? `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+      : 'sin-fecha';
+    const mes = acumulado.get(clave) || {
+      clave,
+      fecha: valida ? new Date(fecha.getFullYear(), fecha.getMonth(), 1) : null,
+      monto: 0,
+      movimientos: [],
+    };
+    mes.monto += Number(gasto.monto) || 0;
+    mes.movimientos.push(gasto);
+    acumulado.set(clave, mes);
+  });
+
+  return [...acumulado.values()].sort((a, b) => {
+    if (!a.fecha) return 1;
+    if (!b.fecha) return -1;
+    return b.fecha - a.fecha;
+  });
+}
+
+function nombreDelMes(mes) {
+  return mes.fecha
+    ? mes.fecha.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' })
+    : 'Sin fecha';
+}
+
+function crearDesgloseCategoria(categoriaId, lista) {
+  const categoria = categoriaDe(categoriaId);
+  const meses = agruparMovimientosPorMes(
+    lista.filter((gasto) => (Number(gasto.categoria_id) || 6) === categoriaId),
+  );
+  const totalCategoria = meses.reduce((suma, mes) => suma + mes.monto, 0);
+  const contenido = meses.map((mes) => {
+    const abierto = mesCategoriaTotalAbierto === mes.clave;
+    const cantidad = mes.movimientos.length;
+    const textoCantidad = cantidad === 1 ? '1 operación' : `${cantidad} operaciones`;
+    const detalleId = `detalle-categoria-${categoriaId}-${mes.clave}`;
+    const operaciones = mes.movimientos.map((gasto) => {
+      const concepto = escapeHTML(gasto.concepto || categoria.nombre);
+      const metodo = escapeHTML(gasto.metodo_pago || 'Sin método');
+      return `
+        <div class="category-operation-row">
+          <span><strong>${concepto}</strong>${fechaMovimiento(gasto.fecha)} · ${metodo}</span>
+          <strong>${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
+        </div>`;
+    }).join('');
+    const porcentaje = totalCategoria > 0 ? (mes.monto / totalCategoria) * 100 : 0;
+    return `
+      <div class="category-month-item">
+        <button type="button" class="category-month-button" data-month="${mes.clave}" aria-expanded="${abierto}" aria-controls="${detalleId}">
+          <span class="category-month-copy">
+            <strong>${nombreDelMes(mes)}</strong>
+            <span>${textoCantidad}</span>
+          </span>
+          <span class="category-month-value">
+            <strong>${formatoMoneda.format(mes.monto)}</strong>
+            <span class="category-chevron" aria-hidden="true">⌄</span>
+          </span>
+          <span class="category-month-track" aria-hidden="true"><span style="width:${porcentaje}%;background:${categoria.color}"></span></span>
+        </button>
+        <div id="${detalleId}" class="category-month-detail" ${abierto ? '' : 'hidden'}>
+          ${operaciones}
         </div>
       </div>`;
   }).join('');
+
+  return `
+    <div id="detalle-categoria-${categoriaId}" class="category-drilldown">
+      <p>${categoria.nombre} por mes</p>
+      <div class="category-month-list">${contenido}</div>
+    </div>`;
+}
+
+function crearMovimiento(gasto) {
+  const categoria = categoriaDe(gasto.categoria_id);
+  const inicial = categoria.nombre.charAt(0);
+  const concepto = escapeHTML(gasto.concepto || categoria.nombre);
+  const metodo = escapeHTML(gasto.metodo_pago || 'Sin método');
+  return `
+    <article class="transaction-item">
+      <span class="transaction-icon" style="color:${categoria.color};background:${categoria.fondo}" aria-hidden="true">${inicial}</span>
+      <div class="transaction-info">
+        <strong>${concepto}</strong>
+        <span>${categoria.nombre} · ${metodo} · ${fechaMovimiento(gasto.fecha)}</span>
+      </div>
+      <strong class="transaction-amount">− ${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
+    </article>`;
 }
 
 function renderizarMovimientos(lista) {
@@ -387,21 +523,46 @@ function renderizarMovimientos(lista) {
 
   vacio.hidden = lista.length > 0;
   contenedor.hidden = lista.length === 0;
-  contenedor.innerHTML = lista.map((gasto) => {
-    const categoria = categoriaDe(gasto.categoria_id);
-    const inicial = categoria.nombre.charAt(0);
-    const concepto = escapeHTML(gasto.concepto || categoria.nombre);
-    const metodo = escapeHTML(gasto.metodo_pago || 'Sin método');
+  contenedor.classList.toggle('monthly-transaction-list', periodoActivo === 'all');
+
+  if (periodoActivo !== 'all') {
+    contenedor.innerHTML = lista.map(crearMovimiento).join('');
+    return;
+  }
+
+  const meses = agruparMovimientosPorMes(lista);
+  if (mesMovimientosTotalAbierto !== null && !meses.some((mes) => mes.clave === mesMovimientosTotalAbierto)) {
+    mesMovimientosTotalAbierto = null;
+  }
+  contenedor.innerHTML = meses.map((mes) => {
+    const abierto = mesMovimientosTotalAbierto === mes.clave;
+    const cantidad = mes.movimientos.length;
+    const textoCantidad = cantidad === 1 ? '1 operación' : `${cantidad} operaciones`;
+    const detalleId = `movimientos-mes-${mes.clave}`;
     return `
-      <article class="transaction-item">
-        <span class="transaction-icon" style="color:${categoria.color};background:${categoria.fondo}" aria-hidden="true">${inicial}</span>
-        <div class="transaction-info">
-          <strong>${concepto}</strong>
-          <span>${categoria.nombre} · ${metodo} · ${fechaMovimiento(gasto.fecha)}</span>
+      <div class="movement-month-item">
+        <button type="button" class="movement-month-button" data-month="${mes.clave}" aria-expanded="${abierto}" aria-controls="${detalleId}">
+          <span>
+            <strong>${nombreDelMes(mes)}</strong>
+            <small>${textoCantidad}</small>
+          </span>
+          <span class="movement-month-value">
+            <strong>${formatoMoneda.format(mes.monto)}</strong>
+            <span class="movement-month-chevron" aria-hidden="true">⌄</span>
+          </span>
+        </button>
+        <div id="${detalleId}" class="movement-month-detail" ${abierto ? '' : 'hidden'}>
+          ${mes.movimientos.map(crearMovimiento).join('')}
         </div>
-        <strong class="transaction-amount">− ${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
-      </article>`;
+      </div>`;
   }).join('');
+
+  contenedor.querySelectorAll('.movement-month-button').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      mesMovimientosTotalAbierto = mesMovimientosTotalAbierto === boton.dataset.month ? null : boton.dataset.month;
+      renderizarMovimientos(lista);
+    });
+  });
 }
 
 function renderizarSemana() {
