@@ -67,6 +67,8 @@ const authPassword = document.getElementById('auth-password');
 const authSubmit = document.getElementById('auth-submit');
 const authMessage = document.getElementById('auth-message');
 const btnCerrarSesion = document.getElementById('cerrar-sesion');
+const gastoDetalleDialog = document.getElementById('gasto-detalle-dialog');
+const btnCerrarGastoDetalle = document.getElementById('cerrar-gasto-detalle');
 
 let gastos = [];
 let gastosCargados = false;
@@ -80,6 +82,7 @@ let diaGraficoSeleccionado = null;
 let categoriaTotalAbierta = null;
 let mesCategoriaTotalAbierto = null;
 let mesMovimientosTotalAbierto = null;
+let intervaloTotalAbierto = null;
 
 function mostrarMensajeAuth(texto, tipoMensaje = 'error') {
   authMessage.textContent = texto;
@@ -188,6 +191,10 @@ function mostrarMensaje(texto, tipoMensaje) {
   mensaje.className = tipoMensaje;
 }
 
+function aMayusculas(valor) {
+  return String(valor || '').trim().toLocaleUpperCase('es-PE');
+}
+
 function cambiarVista(nombre) {
   navTabs.forEach((tab) => {
     const activa = tab.dataset.view === nombre;
@@ -219,6 +226,7 @@ periodTabs.forEach((tab) => {
       categoriaTotalAbierta = null;
       mesCategoriaTotalAbierto = null;
       mesMovimientosTotalAbierto = null;
+      intervaloTotalAbierto = null;
     }
     periodTabs.forEach((item) => {
       const activa = item === tab;
@@ -330,32 +338,158 @@ function fechaMovimiento(valor) {
   return fecha.toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function resumenTanquesLlenos() {
+function indiceDelGasto(gasto) {
+  return gastos.indexOf(gasto);
+}
+
+function atributosDetalleGasto(gasto) {
+  const indice = indiceDelGasto(gasto);
+  return indice >= 0 ? `data-gasto-index="${indice}"` : '';
+}
+
+function abrirDetalleGasto(gasto) {
+  if (!gasto) return;
+
+  const categoria = categoriaDe(gasto.categoria_id);
+  const concepto = String(gasto.concepto || categoria.nombre).trim() || categoria.nombre;
+  const metodo = String(gasto.metodo_pago || 'Sin método').trim() || 'Sin método';
+  const nota = String(gasto.notas || '').trim();
+
+  document.getElementById('gasto-detalle-titulo').textContent = concepto;
+  document.getElementById('gasto-detalle-monto').textContent = formatoMoneda.format(Number(gasto.monto) || 0);
+  document.getElementById('gasto-detalle-meta').textContent = `${categoria.nombre} · ${metodo} · ${fechaMovimiento(gasto.fecha)}`;
+  document.getElementById('gasto-detalle-nota').textContent = nota || 'Este gasto no tiene nota.';
+
+  if (typeof gastoDetalleDialog.showModal === 'function') {
+    gastoDetalleDialog.showModal();
+  } else {
+    gastoDetalleDialog.setAttribute('open', '');
+  }
+}
+
+function cerrarDetalleGasto() {
+  if (typeof gastoDetalleDialog.close === 'function') {
+    gastoDetalleDialog.close();
+  } else {
+    gastoDetalleDialog.removeAttribute('open');
+  }
+}
+
+function diferenciaEnDias(fechaInicial, fechaFinal) {
+  const inicial = Date.UTC(fechaInicial.getFullYear(), fechaInicial.getMonth(), fechaInicial.getDate());
+  const final = Date.UTC(fechaFinal.getFullYear(), fechaFinal.getMonth(), fechaFinal.getDate());
+  return Math.max(0, Math.round((final - inicial) / 86400000));
+}
+
+function textoDias(cantidad) {
+  return `${cantidad} ${cantidad === 1 ? 'día' : 'días'}`;
+}
+
+function obtenerDatosIntervalos(filtro) {
   const hoy = inicioDelDia();
-  const cargas = gastos
-    .filter((gasto) => Number(gasto.monto) > 180 && /gasolina/i.test(String(gasto.concepto || '')))
-    .map((gasto) => inicioDelDia(new Date(gasto.fecha)))
-    .filter((fecha) => !Number.isNaN(fecha.getTime()) && fecha <= hoy)
+  const registros = gastos
+    .filter(filtro)
+    .map((gasto) => new Date(gasto.fecha))
+    .filter((fecha) => !Number.isNaN(fecha.getTime()))
+    .map((fecha) => inicioDelDia(fecha))
+    .filter((fecha) => fecha <= hoy)
     .sort((a, b) => a - b);
 
-  if (!cargas.length) return null;
-
-  const ultima = cargas[cargas.length - 1];
-  const diasDesdeUltima = Math.max(0, Math.floor((hoy - ultima) / 86400000));
-  const textoDesdeUltima = diasDesdeUltima === 0
-    ? 'Hoy'
-    : `${diasDesdeUltima} ${diasDesdeUltima === 1 ? 'día' : 'días'}`;
-
-  if (cargas.length === 1) {
-    return { intervalo: 'Sin intervalo todavía', desdeUltima: textoDesdeUltima };
+  const intervalos = [];
+  for (let indice = registros.length - 1; indice > 0; indice -= 1) {
+    const anterior = registros[indice - 1];
+    const posterior = registros[indice];
+    intervalos.push({
+      anterior,
+      posterior,
+      dias: diferenciaEnDias(anterior, posterior),
+    });
   }
 
-  const penultima = cargas[cargas.length - 2];
-  const ultimoIntervaloDias = Math.max(0, Math.round((ultima - penultima) / 86400000));
   return {
-    intervalo: `${ultimoIntervaloDias} ${ultimoIntervaloDias === 1 ? 'día' : 'días'}`,
-    desdeUltima: textoDesdeUltima,
+    registros,
+    intervalos,
+    desdeUltima: registros.length
+      ? textoDias(diferenciaEnDias(registros[registros.length - 1], hoy))
+      : '—',
   };
+}
+
+function esRegistroGasolina(gasto) {
+  return Number(gasto.monto) > 180 && /gasolina/i.test(String(gasto.concepto || ''));
+}
+
+function esRegistroWD(gasto) {
+  const conceptoEsWD = /\bWD\b/i.test(String(gasto.concepto || ''));
+  const notaEs1Z = /(?:^|\s)1\s?Z(?:\s|$)/i.test(String(gasto.notas || ''));
+  return conceptoEsWD && notaEs1Z;
+}
+
+function resumenUltimoIntervalo(datos) {
+  if (!datos.registros.length) return null;
+  return {
+    intervalo: datos.intervalos.length ? textoDias(datos.intervalos[0].dias) : 'Falta otro registro',
+    desdeUltima: datos.desdeUltima,
+  };
+}
+
+function fechaCortaIntervalo(fecha) {
+  return fecha.toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function renderizarHistorialIntervalos(datos, listaId, desdeId) {
+  const lista = document.getElementById(listaId);
+  const desde = document.getElementById(desdeId);
+
+  if (!datos.registros.length) {
+    lista.innerHTML = '<p class="interval-empty">Sin registros para mostrar.</p>';
+  } else if (!datos.intervalos.length) {
+    lista.innerHTML = '<p class="interval-empty">Falta otro registro para calcular un intervalo.</p>';
+  } else {
+    lista.innerHTML = datos.intervalos.map((intervalo) => `
+      <div class="interval-history-row">
+        <span>${fechaCortaIntervalo(intervalo.anterior)} → ${fechaCortaIntervalo(intervalo.posterior)}</span>
+        <strong>${textoDias(intervalo.dias)}</strong>
+      </div>`).join('');
+  }
+
+  desde.textContent = datos.desdeUltima;
+}
+
+function renderizarIndicadorGasolinaHoy() {
+  const indicador = document.getElementById('gasolina-indicador');
+  const resumen = periodoActivo === 'today'
+    ? resumenUltimoIntervalo(obtenerDatosIntervalos(esRegistroGasolina))
+    : null;
+
+  indicador.hidden = !resumen;
+  if (!resumen) return;
+
+  document.getElementById('gasolina-hoy-intervalo').textContent = resumen.intervalo;
+  document.getElementById('gasolina-hoy-desde').textContent = resumen.desdeUltima;
+}
+
+function renderizarIntervalos() {
+  const seccion = document.getElementById('intervalos-ultimos');
+  seccion.hidden = periodoActivo !== 'all';
+  if (periodoActivo !== 'all') return;
+
+  renderizarHistorialIntervalos(
+    obtenerDatosIntervalos(esRegistroGasolina),
+    'gasolina-intervalos-lista',
+    'gasolina-desde',
+  );
+  renderizarHistorialIntervalos(
+    obtenerDatosIntervalos(esRegistroWD),
+    'wd-intervalos-lista',
+    'wd-desde',
+  );
+
+  seccion.querySelectorAll('.interval-toggle').forEach((boton) => {
+    const abierto = boton.dataset.interval === intervaloTotalAbierto;
+    boton.setAttribute('aria-expanded', String(abierto));
+    document.getElementById(boton.getAttribute('aria-controls')).hidden = !abierto;
+  });
 }
 
 function renderizarCategorias(lista, total) {
@@ -468,10 +602,10 @@ function crearDesgloseCategoria(categoriaId, lista) {
       const concepto = escapeHTML(gasto.concepto || categoria.nombre);
       const metodo = escapeHTML(gasto.metodo_pago || 'Sin método');
       return `
-        <div class="category-operation-row">
+        <button type="button" class="category-operation-row expense-trigger" ${atributosDetalleGasto(gasto)}>
           <span><strong>${concepto}</strong>${fechaMovimiento(gasto.fecha)} · ${metodo}</span>
           <strong>${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
-        </div>`;
+        </button>`;
     }).join('');
     const porcentaje = totalCategoria > 0 ? (mes.monto / totalCategoria) * 100 : 0;
     return `
@@ -506,14 +640,14 @@ function crearMovimiento(gasto) {
   const concepto = escapeHTML(gasto.concepto || categoria.nombre);
   const metodo = escapeHTML(gasto.metodo_pago || 'Sin método');
   return `
-    <article class="transaction-item">
+    <button type="button" class="transaction-item expense-trigger" ${atributosDetalleGasto(gasto)}>
       <span class="transaction-icon" style="color:${categoria.color};background:${categoria.fondo}" aria-hidden="true">${inicial}</span>
-      <div class="transaction-info">
+      <span class="transaction-info">
         <strong>${concepto}</strong>
         <span>${categoria.nombre} · ${metodo} · ${fechaMovimiento(gasto.fecha)}</span>
-      </div>
+      </span>
       <strong class="transaction-amount">− ${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
-    </article>`;
+    </button>`;
 }
 
 function renderizarMovimientos(lista) {
@@ -605,10 +739,10 @@ function renderizarSemana() {
           ? 'Sin hora'
           : fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
         return `
-          <div class="week-detail-row">
+          <button type="button" class="week-detail-row expense-trigger" ${atributosDetalleGasto(gasto)}>
             <span><strong>${concepto}</strong>${categoria.nombre} · ${metodo} · ${hora}</span>
             <strong>${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
-          </div>`;
+          </button>`;
       }).join('')
       : '<p class="week-detail-empty">No registraste gastos este día.</p>';
     return `
@@ -889,14 +1023,14 @@ function renderizarDetalleDiaGrafico(dia) {
       ? 'Sin hora'
       : fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
     return `
-      <article class="transaction-item">
+      <button type="button" class="transaction-item expense-trigger" ${atributosDetalleGasto(gasto)}>
         <span class="transaction-icon" style="color:${categoria.color};background:${categoria.fondo}" aria-hidden="true">${categoria.nombre.charAt(0)}</span>
-        <div class="transaction-info">
+        <span class="transaction-info">
           <strong>${concepto}</strong>
           <span>${categoria.nombre} · ${metodo} · ${hora}</span>
-        </div>
+        </span>
         <strong class="transaction-amount">− ${formatoMoneda.format(Number(gasto.monto) || 0)}</strong>
-      </article>`;
+      </button>`;
   }).join('');
 }
 
@@ -990,8 +1124,6 @@ function renderizarGraficos() {
 function renderizarResumen() {
   const lista = gastosDelPeriodo();
   const total = lista.reduce((suma, gasto) => suma + (Number(gasto.monto) || 0), 0);
-  const indicadorGasolina = document.getElementById('gasolina-indicador');
-  const resumenGasolina = periodoActivo === 'today' ? resumenTanquesLlenos() : null;
   const hoy = new Date();
   const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
   const esVistaMensual = periodoActivo === 'month';
@@ -1024,13 +1156,10 @@ function renderizarResumen() {
   document.getElementById('periodo-fechas').textContent = etiquetaFechas();
   document.getElementById('gasto-total').textContent = formatoMoneda.format(total);
   document.getElementById('gasto-movimientos').textContent = lista.length;
-  indicadorGasolina.hidden = !resumenGasolina;
-  if (resumenGasolina) {
-    document.getElementById('gasolina-intervalo').textContent = resumenGasolina.intervalo;
-    document.getElementById('gasolina-desde').textContent = resumenGasolina.desdeUltima;
-  }
 
   renderizarCategorias(lista, total);
+  renderizarIndicadorGasolinaHoy();
+  renderizarIntervalos();
   renderizarSemana();
   renderizarSemanasDelMes();
   renderizarMesesDelTotal();
@@ -1077,6 +1206,25 @@ async function cargarGastos() {
 
 btnActualizar.addEventListener('click', cargarGastos);
 btnActualizarGraficos.addEventListener('click', cargarGastos);
+document.querySelectorAll('.interval-toggle').forEach((boton) => {
+  boton.addEventListener('click', () => {
+    intervaloTotalAbierto = intervaloTotalAbierto === boton.dataset.interval
+      ? null
+      : boton.dataset.interval;
+    renderizarIntervalos();
+  });
+});
+btnCerrarGastoDetalle.addEventListener('click', cerrarDetalleGasto);
+gastoDetalleDialog.addEventListener('click', (event) => {
+  if (event.target === gastoDetalleDialog) cerrarDetalleGasto();
+});
+document.addEventListener('click', (event) => {
+  const disparador = event.target.closest('[data-gasto-index]');
+  if (!disparador) return;
+
+  const indice = Number(disparador.dataset.gastoIndex);
+  if (Number.isInteger(indice)) abrirDetalleGasto(gastos[indice]);
+});
 btnMesAnterior.addEventListener('click', () => {
   mesGrafico = new Date(mesGrafico.getFullYear(), mesGrafico.getMonth() - 1, 1);
   diaGraficoSeleccionado = null;
@@ -1154,13 +1302,13 @@ form.addEventListener('submit', async (event) => {
 
     tabla = 'gastos_david';
     payload = {
-      concepto,
+      concepto: aMayusculas(concepto),
       monto,
       user_id: sesionActual.user.id,
       categoria_id: categoria,
-      metodo_pago: metodoPago,
+      metodo_pago: aMayusculas(metodoPago),
       es_recurrente: document.getElementById('gasto-recurrente').checked,
-      notas: document.getElementById('gasto-notas').value.trim() || null,
+      notas: aMayusculas(document.getElementById('gasto-notas').value) || null,
     };
     const fecha = document.getElementById('gasto-fecha').value;
     if (fecha) payload.fecha = fecha;
@@ -1176,7 +1324,13 @@ form.addEventListener('submit', async (event) => {
     }
 
     tabla = 'comida';
-    payload = { concepto, calorias, proteinas, nombre, user_id: sesionActual.user.id };
+    payload = {
+      concepto: aMayusculas(concepto),
+      calorias,
+      proteinas,
+      nombre: aMayusculas(nombre),
+      user_id: sesionActual.user.id,
+    };
     const fecha = document.getElementById('comida-fecha').value;
     if (fecha) payload.fecha = fecha;
   } else {

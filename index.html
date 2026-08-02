@@ -227,12 +227,12 @@
             <span id="periodo-fechas">—</span>
             <div id="gasolina-indicador" class="gasolina-indicator" hidden>
               <div>
-                <span>Intervalo entre últimas tanqueadas</span>
-                <strong id="gasolina-intervalo">—</strong>
+                <span>Último intervalo de gasolina</span>
+                <strong id="gasolina-hoy-intervalo">—</strong>
               </div>
               <div>
                 <span>Días desde la última tanqueada</span>
-                <strong id="gasolina-desde">—</strong>
+                <strong id="gasolina-hoy-desde">—</strong>
               </div>
             </div>
           </article>
@@ -257,6 +257,37 @@
             <div id="categorias-lista" class="category-list"></div>
             <p id="categorias-ayuda" class="category-help" hidden>Selecciona una categoría para ver sus meses y operaciones.</p>
             <div id="categorias-vacio" class="empty-inline" hidden>Sin categorías para mostrar.</div>
+          </section>
+
+          <section id="intervalos-ultimos" class="summary-card intervals-card" aria-label="Intervalos de gasolina y WD" hidden>
+            <div class="interval-accordion-list">
+              <article class="interval-accordion-item">
+                <button type="button" class="interval-toggle" data-interval="gasolina" aria-expanded="false" aria-controls="gasolina-detalle">
+                  <strong>Gasolina</strong>
+                  <span class="interval-chevron" aria-hidden="true">⌄</span>
+                </button>
+                <div id="gasolina-detalle" class="interval-detail" hidden>
+                  <div id="gasolina-intervalos-lista" class="interval-history"></div>
+                  <div class="interval-since">
+                    <span>Desde el último registro</span>
+                    <strong id="gasolina-desde">—</strong>
+                  </div>
+                </div>
+              </article>
+              <article class="interval-accordion-item">
+                <button type="button" class="interval-toggle" data-interval="wd" aria-expanded="false" aria-controls="wd-detalle">
+                  <strong>WD</strong>
+                  <span class="interval-chevron" aria-hidden="true">⌄</span>
+                </button>
+                <div id="wd-detalle" class="interval-detail" hidden>
+                  <div id="wd-intervalos-lista" class="interval-history"></div>
+                  <div class="interval-since">
+                    <span>Desde el último registro</span>
+                    <strong id="wd-desde">—</strong>
+                  </div>
+                </div>
+              </article>
+            </div>
           </section>
 
           <section id="desglose-mes-semanal" class="summary-card" aria-labelledby="mes-semanal-titulo" hidden>
@@ -396,6 +427,20 @@
       </section>
     </main>
   </div>
+
+  <dialog id="gasto-detalle-dialog" class="expense-dialog" aria-labelledby="gasto-detalle-titulo">
+    <article class="expense-dialog-card">
+      <button type="button" id="cerrar-gasto-detalle" class="expense-dialog-close" aria-label="Cerrar detalle">×</button>
+      <span class="eyebrow">Detalle del gasto</span>
+      <h2 id="gasto-detalle-titulo">Gasto</h2>
+      <strong id="gasto-detalle-monto" class="expense-dialog-amount">S/ 0.00</strong>
+      <p id="gasto-detalle-meta" class="expense-dialog-meta">—</p>
+      <div class="expense-note">
+        <span>Nota</span>
+        <p id="gasto-detalle-nota">Sin nota.</p>
+      </div>
+    </article>
+  </dialog>
 
   <div id="install-prompt-android" style="display: none; position: fixed; bottom: 20px; left: 20px; right: 20px; background: #6366f1; color: white; padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; animation: slideUp 0.3s ease;">
     <div style="display: flex; gap: 12px; align-items: center;">
