@@ -421,8 +421,8 @@ function esRegistroGasolina(gasto) {
 
 function esRegistroWD(gasto) {
   const conceptoEsWD = /\bWD\b/i.test(String(gasto.concepto || ''));
-  const notaEs1Z = /(?:^|\s)1\s?Z(?:\s|$)/i.test(String(gasto.notas || ''));
-  return conceptoEsWD && notaEs1Z;
+  const notaEs1Zo1ZT = /(?:^|\s)1\s?ZT?(?:\s|$)/i.test(String(gasto.notas || ''));
+  return conceptoEsWD && notaEs1Zo1ZT;
 }
 
 function resumenUltimoIntervalo(datos) {
