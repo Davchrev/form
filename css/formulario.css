@@ -1108,3 +1108,6 @@ main { padding: 28px 28px 36px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+#editar-fecha-gasto { margin-top: 20px; }
+#gasto-fecha-mensaje { margin-top: 10px; font-size: 12px; }

@@ -70,6 +70,9 @@ const btnCerrarSesion = document.getElementById('cerrar-sesion');
 const gastoDetalleDialog = document.getElementById('gasto-detalle-dialog');
 const btnCerrarGastoDetalle = document.getElementById('cerrar-gasto-detalle');
 
+let gastoEnDetalle = null;
+let guardandoFecha = false;
+let cargandoGastos = false;
 let gastos = [];
 let gastosCargados = false;
 let periodoActivo = 'today';
@@ -348,7 +351,13 @@ function atributosDetalleGasto(gasto) {
 }
 
 function abrirDetalleGasto(gasto) {
-  if (!gasto) return;
+  if (!gasto || guardandoFecha) return;
+  gastoEnDetalle = gasto;
+  const fechaLocal = new Date(gasto.fecha);
+  document.getElementById('gasto-detalle-fecha').value = Number.isNaN(fechaLocal.getTime())
+    ? ''
+    : `${claveFecha(fechaLocal)}T${String(fechaLocal.getHours()).padStart(2, '0')}:${String(fechaLocal.getMinutes()).padStart(2, '0')}:${String(fechaLocal.getSeconds()).padStart(2, '0')}`;
+  document.getElementById('gasto-fecha-mensaje').textContent = '';
 
   const categoria = categoriaDe(gasto.categoria_id);
   const concepto = String(gasto.concepto || categoria.nombre).trim() || categoria.nombre;
@@ -368,12 +377,51 @@ function abrirDetalleGasto(gasto) {
 }
 
 function cerrarDetalleGasto() {
+  if (guardandoFecha) return;
   if (typeof gastoDetalleDialog.close === 'function') {
     gastoDetalleDialog.close();
   } else {
     gastoDetalleDialog.removeAttribute('open');
   }
 }
+
+document.getElementById('editar-fecha-gasto').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (guardandoFecha || !gastoEnDetalle) return;
+  const estado = document.getElementById('gasto-fecha-mensaje');
+  const fecha = new Date(document.getElementById('gasto-detalle-fecha').value);
+  if (!sesionActual?.user || Number.isNaN(fecha.getTime())) {
+    estado.textContent = 'Revisa la fecha y que tu sesión siga activa.';
+    return;
+  }
+  const gasto = gastoEnDetalle;
+  const usuario = sesionActual.user.id;
+  const boton = event.currentTarget.querySelector('button');
+  guardandoFecha = true;
+  boton.disabled = true;
+  estado.textContent = 'Guardando…';
+  try {
+    const { data, error } = await supabaseClient.from('gastos_david')
+      .update({ fecha: fecha.toISOString() })
+      .eq('id', gasto.id).eq('user_id', usuario)
+      .select('*').single();
+    if (error || !data) throw error || new Error('No se actualizó el gasto');
+    if (sesionActual?.user?.id !== usuario) return;
+    Object.assign(gasto, data);
+    gastos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    renderizarResumen();
+    renderizarGraficos();
+    guardandoFecha = false;
+    abrirDetalleGasto(gasto);
+    estado.textContent = 'Fecha actualizada.';
+  } catch (error) {
+    console.error(error);
+    estado.textContent = 'No se pudo cambiar la fecha. Intenta de nuevo.';
+  } finally {
+    guardandoFecha = false;
+    boton.disabled = false;
+  }
+});
 
 function diferenciaEnDias(fechaInicial, fechaFinal) {
   const inicial = Date.UTC(fechaInicial.getFullYear(), fechaInicial.getMonth(), fechaInicial.getDate());
@@ -1167,7 +1215,9 @@ function renderizarResumen() {
 }
 
 async function cargarGastos() {
-  if (!sesionActual?.user) return;
+  if (!sesionActual?.user || cargandoGastos) return;
+  cargandoGastos = true;
+  const usuario = sesionActual.user.id;
 
   [gastosLoading, graficosLoading].forEach((elemento) => { elemento.hidden = false; });
   [gastosError, graficosError].forEach((elemento) => { elemento.hidden = true; });
@@ -1178,14 +1228,19 @@ async function cargarGastos() {
   });
 
   try {
-    const { data, error } = await supabaseClient
-      .from('gastos_david')
-      .select('*')
-      .eq('user_id', sesionActual.user.id)
-      .order('fecha', { ascending: false });
-
-    if (error) throw error;
-    gastos = Array.isArray(data) ? data : [];
+    const historial = [];
+    const tamanoPagina = 500;
+    for (let desde = 0; ; desde += tamanoPagina) {
+      const { data, error } = await supabaseClient
+        .from('gastos_david').select('*').eq('user_id', usuario)
+        .order('fecha', { ascending: false }).order('id', { ascending: false })
+        .range(desde, desde + tamanoPagina - 1);
+      if (error) throw error;
+      historial.push(...(data || []));
+      if (!data || data.length < tamanoPagina) break;
+    }
+    if (sesionActual?.user?.id !== usuario) return;
+    gastos = historial;
     gastosCargados = true;
     renderizarResumen();
     renderizarGraficos();
@@ -1197,12 +1252,17 @@ async function cargarGastos() {
     [gastosLoading, graficosLoading].forEach((elemento) => { elemento.hidden = true; });
     [gastosError, graficosError].forEach((elemento) => { elemento.hidden = false; });
   } finally {
+    cargandoGastos = false;
     [btnActualizar, btnActualizarGraficos].forEach((boton) => {
       boton.classList.remove('loading');
       boton.disabled = false;
     });
   }
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !gastoDetalleDialog.open) cargarGastos();
+});
 
 btnActualizar.addEventListener('click', cargarGastos);
 btnActualizarGraficos.addEventListener('click', cargarGastos);
@@ -1213,6 +1273,9 @@ document.querySelectorAll('.interval-toggle').forEach((boton) => {
       : boton.dataset.interval;
     renderizarIntervalos();
   });
+});
+gastoDetalleDialog.addEventListener('cancel', (event) => {
+  if (guardandoFecha) event.preventDefault();
 });
 btnCerrarGastoDetalle.addEventListener('click', cerrarDetalleGasto);
 gastoDetalleDialog.addEventListener('click', (event) => {
@@ -1311,7 +1374,7 @@ form.addEventListener('submit', async (event) => {
       notas: aMayusculas(document.getElementById('gasto-notas').value) || null,
     };
     const fecha = document.getElementById('gasto-fecha').value;
-    if (fecha) payload.fecha = fecha;
+    if (fecha) payload.fecha = new Date(fecha).toISOString();
   } else if (tipo.value === 'comida') {
     const concepto = document.getElementById('comida-concepto').value.trim();
     const calorias = Number(document.getElementById('comida-calorias').value);
@@ -1332,7 +1395,7 @@ form.addEventListener('submit', async (event) => {
       user_id: sesionActual.user.id,
     };
     const fecha = document.getElementById('comida-fecha').value;
-    if (fecha) payload.fecha = fecha;
+    if (fecha) payload.fecha = new Date(fecha).toISOString();
   } else {
     mostrarMensaje('Selecciona un tipo de registro.', 'error');
     return;

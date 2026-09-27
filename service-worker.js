@@ -1,4 +1,4 @@
-const CACHE_NAME = 'registro-v17';
+const CACHE_NAME = 'registro-v18';
 const URLS_TO_CACHE = [
   '/form/',
   '/form/index.html',
@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName.startsWith('registro-') && cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
@@ -44,20 +44,19 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
+    fetch(event.request, { cache: 'no-cache' })
+      .then(async (response) => {
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(event.request, response.clone());
         }
-        return fetch(event.request).then((response) => {
-          if (!response || response.status !== 200 || response.type === 'error') {
-            return response;
-          }
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, responseToCache));
-          return response;
-        });
+        return response;
+      })
+      .catch(async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const response = await cache.match(event.request);
+        if (response) return response;
+        throw new Error('Recurso no disponible sin conexión');
       })
       .catch(() => {
         return new Response('Modo offline - no hay conexión', {
