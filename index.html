@@ -444,7 +444,10 @@
           <label for="gasto-detalle-fecha">Fecha y hora del gasto</label>
           <input type="datetime-local" id="gasto-detalle-fecha" required step="1">
         </div>
-        <button type="submit" class="btn-guardar">Guardar fecha</button>
+        <div class="expense-dialog-actions">
+          <button type="submit" class="btn-guardar">Guardar fecha</button>
+          <button type="button" id="eliminar-gasto" class="btn-eliminar">Eliminar registro</button>
+        </div>
         <p id="gasto-fecha-mensaje" role="status" aria-live="polite"></p>
       </form>
     </article>

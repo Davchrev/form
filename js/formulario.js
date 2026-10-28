@@ -69,9 +69,12 @@ const authMessage = document.getElementById('auth-message');
 const btnCerrarSesion = document.getElementById('cerrar-sesion');
 const gastoDetalleDialog = document.getElementById('gasto-detalle-dialog');
 const btnCerrarGastoDetalle = document.getElementById('cerrar-gasto-detalle');
+const btnEliminarGasto = document.getElementById('eliminar-gasto');
 
 let gastoEnDetalle = null;
 let guardandoFecha = false;
+let eliminandoGasto = false;
+let guardandoRegistro = false;
 let cargandoGastos = false;
 let gastos = [];
 let gastosCargados = false;
@@ -196,6 +199,12 @@ function mostrarMensaje(texto, tipoMensaje) {
 
 function aMayusculas(valor) {
   return String(valor || '').trim().toLocaleUpperCase('es-PE');
+}
+
+function fechaLocalParaBase(valor) {
+  const fechaLocal = String(valor || '').trim();
+  if (!fechaLocal) return null;
+  return Number.isNaN(new Date(fechaLocal).getTime()) ? null : fechaLocal;
 }
 
 function cambiarVista(nombre) {
@@ -351,7 +360,7 @@ function atributosDetalleGasto(gasto) {
 }
 
 function abrirDetalleGasto(gasto) {
-  if (!gasto || guardandoFecha) return;
+  if (!gasto || guardandoFecha || eliminandoGasto) return;
   gastoEnDetalle = gasto;
   const fechaLocal = new Date(gasto.fecha);
   document.getElementById('gasto-detalle-fecha').value = Number.isNaN(fechaLocal.getTime())
@@ -377,7 +386,8 @@ function abrirDetalleGasto(gasto) {
 }
 
 function cerrarDetalleGasto() {
-  if (guardandoFecha) return;
+  if (guardandoFecha || eliminandoGasto) return;
+  gastoEnDetalle = null;
   if (typeof gastoDetalleDialog.close === 'function') {
     gastoDetalleDialog.close();
   } else {
@@ -387,10 +397,10 @@ function cerrarDetalleGasto() {
 
 document.getElementById('editar-fecha-gasto').addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (guardandoFecha || !gastoEnDetalle) return;
+  if (guardandoFecha || eliminandoGasto || !gastoEnDetalle) return;
   const estado = document.getElementById('gasto-fecha-mensaje');
-  const fecha = new Date(document.getElementById('gasto-detalle-fecha').value);
-  if (!sesionActual?.user || Number.isNaN(fecha.getTime())) {
+  const fecha = fechaLocalParaBase(document.getElementById('gasto-detalle-fecha').value);
+  if (!sesionActual?.user || !fecha) {
     estado.textContent = 'Revisa la fecha y que tu sesión siga activa.';
     return;
   }
@@ -402,7 +412,7 @@ document.getElementById('editar-fecha-gasto').addEventListener('submit', async (
   estado.textContent = 'Guardando…';
   try {
     const { data, error } = await supabaseClient.from('gastos_david')
-      .update({ fecha: fecha.toISOString() })
+      .update({ fecha })
       .eq('id', gasto.id).eq('user_id', usuario)
       .select('*').single();
     if (error || !data) throw error || new Error('No se actualizó el gasto');
@@ -420,6 +430,47 @@ document.getElementById('editar-fecha-gasto').addEventListener('submit', async (
   } finally {
     guardandoFecha = false;
     boton.disabled = false;
+  }
+});
+
+btnEliminarGasto.addEventListener('click', async () => {
+  if (guardandoFecha || eliminandoGasto || !gastoEnDetalle || !sesionActual?.user) return;
+  const gasto = gastoEnDetalle;
+  const concepto = String(gasto.concepto || 'este registro').trim() || 'este registro';
+  if (!window.confirm(`¿Eliminar ${concepto}? Esta acción no se puede deshacer.`)) return;
+
+  const usuario = sesionActual.user.id;
+  const estado = document.getElementById('gasto-fecha-mensaje');
+  const btnGuardarFecha = document.getElementById('editar-fecha-gasto').querySelector('button[type="submit"]');
+  let eliminado = false;
+  eliminandoGasto = true;
+  btnEliminarGasto.disabled = true;
+  btnGuardarFecha.disabled = true;
+  estado.textContent = 'Eliminando…';
+
+  try {
+    const { data, error } = await supabaseClient.from('gastos_david')
+      .delete()
+      .eq('id', gasto.id).eq('user_id', usuario)
+      .select('id').single();
+    if (error || !data) throw error || new Error('No se eliminó el gasto');
+    if (sesionActual?.user?.id !== usuario) return;
+    gastos = gastos.filter((item) => item.id !== gasto.id);
+    gastoEnDetalle = null;
+    renderizarResumen();
+    renderizarGraficos();
+    eliminado = true;
+  } catch (error) {
+    console.error(error);
+    estado.textContent = 'No se pudo eliminar el registro. Intenta de nuevo.';
+  } finally {
+    eliminandoGasto = false;
+    btnEliminarGasto.disabled = false;
+    btnGuardarFecha.disabled = false;
+    if (eliminado) {
+      if (typeof gastoDetalleDialog.close === 'function') gastoDetalleDialog.close();
+      else gastoDetalleDialog.removeAttribute('open');
+    }
   }
 });
 
@@ -1275,7 +1326,7 @@ document.querySelectorAll('.interval-toggle').forEach((boton) => {
   });
 });
 gastoDetalleDialog.addEventListener('cancel', (event) => {
-  if (guardandoFecha) event.preventDefault();
+  if (guardandoFecha || eliminandoGasto) event.preventDefault();
 });
 btnCerrarGastoDetalle.addEventListener('click', cerrarDetalleGasto);
 gastoDetalleDialog.addEventListener('click', (event) => {
@@ -1341,6 +1392,7 @@ document.getElementById('ir-a-registrar').addEventListener('click', () => {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (guardandoRegistro) return;
   mensaje.className = '';
 
   if (!sesionActual?.user) {
@@ -1373,8 +1425,13 @@ form.addEventListener('submit', async (event) => {
       es_recurrente: document.getElementById('gasto-recurrente').checked,
       notas: aMayusculas(document.getElementById('gasto-notas').value) || null,
     };
-    const fecha = document.getElementById('gasto-fecha').value;
-    if (fecha) payload.fecha = new Date(fecha).toISOString();
+    const fechaIngresada = document.getElementById('gasto-fecha').value;
+    const fecha = fechaLocalParaBase(fechaIngresada);
+    if (fechaIngresada && !fecha) {
+      mostrarMensaje('Revisa la fecha y hora del gasto.', 'error');
+      return;
+    }
+    if (fecha) payload.fecha = fecha;
   } else if (tipo.value === 'comida') {
     const concepto = document.getElementById('comida-concepto').value.trim();
     const calorias = Number(document.getElementById('comida-calorias').value);
@@ -1394,13 +1451,19 @@ form.addEventListener('submit', async (event) => {
       nombre: aMayusculas(nombre),
       user_id: sesionActual.user.id,
     };
-    const fecha = document.getElementById('comida-fecha').value;
-    if (fecha) payload.fecha = new Date(fecha).toISOString();
+    const fechaIngresada = document.getElementById('comida-fecha').value;
+    const fecha = fechaLocalParaBase(fechaIngresada);
+    if (fechaIngresada && !fecha) {
+      mostrarMensaje('Revisa la fecha y hora de la comida.', 'error');
+      return;
+    }
+    if (fecha) payload.fecha = fecha;
   } else {
     mostrarMensaje('Selecciona un tipo de registro.', 'error');
     return;
   }
 
+  guardandoRegistro = true;
   btnGuardar.disabled = true;
   btnGuardar.textContent = 'Guardando...';
 
@@ -1425,6 +1488,7 @@ form.addEventListener('submit', async (event) => {
     console.error(error);
     mostrarMensaje('No se pudo guardar. Intenta de nuevo.', 'error');
   } finally {
+    guardandoRegistro = false;
     btnGuardar.disabled = false;
     btnGuardar.textContent = 'Guardar registro';
   }

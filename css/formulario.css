@@ -300,7 +300,8 @@ main { padding: 28px 28px 36px; }
 }
 
 .btn-guardar,
-.btn-secondary {
+.btn-secondary,
+.btn-eliminar {
   border: 0;
   border-radius: 8px;
   cursor: pointer;
@@ -318,7 +319,18 @@ main { padding: 28px 28px 36px; }
 
 .btn-guardar:hover { background: var(--accent-dark); }
 .btn-guardar:active { transform: translateY(1px); }
-.btn-guardar:disabled { opacity: .6; cursor: default; }
+.btn-guardar:disabled,
+.btn-eliminar:disabled { opacity: .6; cursor: default; }
+
+.btn-eliminar {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid #efb8b5;
+  background: #fff5f4;
+  color: var(--danger);
+  transition: background .15s, border-color .15s;
+}
+.btn-eliminar:hover { border-color: #dc8f8a; background: #fdecec; }
 
 #mensaje {
   display: none;
@@ -1110,4 +1122,6 @@ main { padding: 28px 28px 36px; }
 }
 
 #editar-fecha-gasto { margin-top: 20px; }
+.expense-dialog-actions { display: grid; gap: 9px; margin-top: 8px; }
+.expense-dialog-actions .btn-guardar { margin-top: 0; }
 #gasto-fecha-mensaje { margin-top: 10px; font-size: 12px; }
